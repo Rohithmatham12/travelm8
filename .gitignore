@@ -1,0 +1,51 @@
+# Dependency directories
+node_modules/
+.venv/
+venv/
+env/
+__pycache__/
+
+# Build artifacts
+dist/
+build/
+*.o
+*.pyc
+
+# Environment variables
+.env
+.env.*
+*.env
+
+# Log files
+*.log
+logs/
+*.log.*
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDE configuration files
+.idea/
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Terraform/CDK state
+.terraform/
+*.tfstate
+*.tfstate.*
+.cdk.staging
+cdk.out/
+
+# AWS credentials (Safety Net - SHOULD NOT BE IN PROJECT ANYWAY)
+.aws/
+credentials
+config
+
+# Other
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
