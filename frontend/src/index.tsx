@@ -33,10 +33,18 @@ Amplify.configure({
       //   responseType: 'code' // 'code' for Authorization Code Grant, 'token' for Implicit Grant
       // }
     }
-  }
-  // Later, you might add configurations for API Gateway (API) or S3 (Storage) here
-  // API: { ... },
-  // Storage: { ... }
+  },
+
+    // --- Add API Configuration ---
+    API: {
+      REST: { // Define a REST API endpoint configuration
+        TravelM8Api: { // Give your API a logical name (can be anything)
+          endpoint: 'https://nkecrmudvi.execute-api.us-east-1.amazonaws.com/', // <--- Replace with ApiEndpointOutput from Step 6
+          region: 'us-east-1' // <--- Replace with the region you deployed to (e.g., 'us-east-1')
+        }
+      }
+    }
+    // --- End API Configuration ---
 });
 // --- End Amplify Configuration ---
 
