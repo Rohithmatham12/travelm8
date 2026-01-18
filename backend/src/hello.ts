@@ -1,51 +1,98 @@
 // File: backend/src/hello.ts
 
-// Make sure you have run `npm install --save-dev @types/aws-lambda` in the `backend` directory
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 
-// Define a more specific type for the request context if needed.
-// This helps document the expected structure from the Cognito authorizer.
-// Check the actual event log in CloudWatch first to confirm the structure.
-type RequestContextWithAuthorizer = APIGatewayProxyEventV2["requestContext"] & {
-    authorizer?: {
-        jwt?: {
-            claims?: {
-                sub?: string; // User ID
-                email?: string;
-                // Add other claims you might need, e.g., 'cognito:groups'
-            };
-            scopes?: string[];
-        };
-        // May include other authorizer properties depending on type/config
+// Define a more specific type for the request context with Cognito authorizer
+type RequestContextWithAuthorizer = APIGatewayProxyEventV2['requestContext'] & {
+  authorizer?: {
+    jwt?: {
+      claims?: {
+        sub?: string; // User ID
+        email?: string;
+        given_name?: string;
+        family_name?: string;
+        // Add other claims you might need, e.g., 'cognito:groups'
+      };
+      scopes?: string[];
     };
+    // May include other authorizer properties depending on type/config
+  };
 };
+
+// Response interface for better type safety
+interface HelloResponse {
+  message: string;
+  timestamp: string;
+  user?: {
+    id: string;
+    email: string;
+    name?: string;
+  };
+}
 
 /**
  * Handler for the /hello endpoint triggered by API Gateway V2 (HTTP API).
  * Assumes Cognito User Pool authorizer is attached.
  */
-export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
-  console.log('Event Received:', JSON.stringify(event, null, 2));
+export const handler = async (
+  event: APIGatewayProxyEventV2
+): Promise<APIGatewayProxyResultV2> => {
+  try {
+    console.log('Event Received:', JSON.stringify(event, null, 2));
 
-  // Cast the requestContext to our more specific type (safer than 'any')
-  // Note: This still involves a type assertion, use with understanding of the expected data.
-  const requestContext = event.requestContext as RequestContextWithAuthorizer | undefined;
+    // Cast the requestContext to our more specific type (safer than 'any')
+    const requestContext = event.requestContext as RequestContextWithAuthorizer | undefined;
 
-  // Access user info safely using optional chaining
-  const userId = requestContext?.authorizer?.jwt?.claims?.sub;
-  const userEmail = requestContext?.authorizer?.jwt?.claims?.email;
+    // Access user info safely using optional chaining
+    const userId = requestContext?.authorizer?.jwt?.claims?.sub;
+    const userEmail = requestContext?.authorizer?.jwt?.claims?.email;
+    const givenName = requestContext?.authorizer?.jwt?.claims?.given_name;
+    const familyName = requestContext?.authorizer?.jwt?.claims?.family_name;
 
-  const message = `Hello ${userEmail || userId || 'anonymous'} from TravelM8 Lambda!`;
-  console.log(`Responding with message: "${message}"`);
+    // Create user-friendly name
+    const userName = givenName && familyName 
+      ? `${givenName} ${familyName}` 
+      : givenName || userEmail || userId || 'anonymous';
 
-  return {
-    statusCode: 200,
-    headers: {
-      'Content-Type': 'application/json',
-      // Relying on API Gateway CORS configuration for Access-Control-Allow-Origin etc.
-    },
-    body: JSON.stringify({
-      message: message,
-    }),
-  };
+    const message = `Hello ${userName} from TravelM8 Lambda!`;
+    console.log(`Responding with message: "${message}"`);
+
+    const response: HelloResponse = {
+      message,
+      timestamp: new Date().toISOString(),
+      ...(userId && userEmail && {
+        user: {
+          id: userId,
+          email: userEmail,
+          ...(givenName && familyName && { name: `${givenName} ${familyName}` }),
+        },
+      }),
+    };
+
+    return {
+      statusCode: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+        'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+      },
+      body: JSON.stringify(response),
+    };
+  } catch (error) {
+    console.error('Error in hello handler:', error);
+    
+    return {
+      statusCode: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      },
+      body: JSON.stringify({
+        error: 'Internal server error',
+        message: 'An unexpected error occurred',
+        timestamp: new Date().toISOString(),
+      }),
+    };
+  }
 };

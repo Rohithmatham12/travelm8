@@ -1,0 +1,147 @@
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
+import { Request, Response, NextFunction } from 'express';
+import { putItem, getItem } from './storage';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'travelm8-secret-key-change-in-production';
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
+
+export interface User {
+  userId: string;
+  email: string;
+  password: string; // hashed
+  name?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AuthRequest extends Request {
+  userId?: string;
+  user?: User;
+}
+
+/**
+ * Generate JWT token
+ */
+export function generateToken(userId: string, email: string): string {
+  return jwt.sign(
+    { userId, email },
+    JWT_SECRET,
+    { expiresIn: JWT_EXPIRES_IN }
+  );
+}
+
+/**
+ * Verify JWT token
+ */
+export function verifyToken(token: string): { userId: string; email: string } | null {
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; email: string };
+    return decoded;
+  } catch (error) {
+    return null;
+  }
+}
+
+/**
+ * Hash password
+ */
+export async function hashPassword(password: string): Promise<string> {
+  return bcrypt.hash(password, 10);
+}
+
+/**
+ * Compare password with hash
+ */
+export async function comparePassword(password: string, hash: string): Promise<boolean> {
+  return bcrypt.compare(password, hash);
+}
+
+/**
+ * Authentication middleware
+ */
+export function authenticateToken(req: AuthRequest, res: Response, next: NextFunction): void {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+
+  if (!token) {
+    res.status(401).json({
+      success: false,
+      error: 'Authentication token required'
+    });
+    return;
+  }
+
+  const decoded = verifyToken(token);
+  if (!decoded) {
+    res.status(401).json({
+      success: false,
+      error: 'Invalid or expired token'
+    });
+    return;
+  }
+
+  // Get user from storage
+  const user = getItem('users', { userId: decoded.userId }) as User | null;
+  if (!user) {
+    res.status(401).json({
+      success: false,
+      error: 'User not found'
+    });
+    return;
+  }
+
+  req.userId = decoded.userId;
+  req.user = user;
+  next();
+}
+
+/**
+ * Register a new user
+ */
+export async function registerUser(email: string, password: string, name?: string): Promise<{ user: User; token: string }> {
+  // Check if user already exists
+  const existingUser = getItem('users', { email }) as User | null;
+  if (existingUser) {
+    throw new Error('User with this email already exists');
+  }
+
+  const userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const hashedPassword = await hashPassword(password);
+  const now = new Date().toISOString();
+
+  const user: User = {
+    userId,
+    email,
+    password: hashedPassword,
+    name,
+    createdAt: now,
+    updatedAt: now
+  };
+
+  putItem('users', user);
+
+  const token = generateToken(userId, email);
+
+  return { user, token };
+}
+
+/**
+ * Login user
+ */
+export async function loginUser(email: string, password: string): Promise<{ user: User; token: string }> {
+  const user = getItem('users', { email }) as User | null;
+  if (!user) {
+    throw new Error('Invalid email or password');
+  }
+
+  const isValidPassword = await comparePassword(password, user.password);
+  if (!isValidPassword) {
+    throw new Error('Invalid email or password');
+  }
+
+  const token = generateToken(user.userId, user.email);
+
+  return { user, token };
+}
+
