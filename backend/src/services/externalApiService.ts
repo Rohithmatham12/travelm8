@@ -38,22 +38,23 @@ export class ExternalApiService {
    */
   async getWeatherData(destination: string): Promise<WeatherData> {
     // Mock weather data - in production, integrate with OpenWeatherMap or similar
-    const mockWeatherData: WeatherData[] = [
-      {
-        location: destination,
-        temperature: Math.round(15 + Math.random() * 20), // 15-35°C
-        condition: ['sunny', 'cloudy', 'partly cloudy', 'rainy'][Math.floor(Math.random() * 4)],
-        humidity: Math.round(40 + Math.random() * 40), // 40-80%
-        windSpeed: Math.round(5 + Math.random() * 15), // 5-20 km/h
-        description: `Pleasant weather in ${destination}`,
-        icon: '☀️'
-      }
-    ];
+    const conditions = ['sunny', 'cloudy', 'partly cloudy', 'rainy'];
+    const condition = conditions[Math.floor(Math.random() * conditions.length)] || 'sunny';
+    
+    const mockWeatherData: WeatherData = {
+      location: destination,
+      temperature: Math.round(15 + Math.random() * 20), // 15-35°C
+      condition,
+      humidity: Math.round(40 + Math.random() * 40), // 40-80%
+      windSpeed: Math.round(5 + Math.random() * 15), // 5-20 km/h
+      description: `Pleasant weather in ${destination}`,
+      icon: '☀️'
+    };
 
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 1000));
 
-    return mockWeatherData[0];
+    return mockWeatherData;
   }
 
   /**

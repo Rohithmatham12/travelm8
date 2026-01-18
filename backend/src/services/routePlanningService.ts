@@ -1,5 +1,3 @@
-<<<<<<< Current (Your changes)
-=======
 import { v4 as uuidv4 } from 'uuid';
 import {
   RouteRequest,
@@ -8,7 +6,6 @@ import {
   StopOptionSet,
   RouteSummary,
   OfflineMapPlan,
-  VerificationStatus,
   SelectedStops,
   FinalItinerary,
   CalendarEvent
@@ -325,8 +322,9 @@ const VERIFIED_MOTELS_LA_SF: RouteStop[] = [
   }
 ];
 
-// Emergency stops (gas, hospitals)
-const EMERGENCY_STOPS_LA_SF: RouteStop[] = [
+// Emergency stops (gas, hospitals) - Reserved for future offline map planning
+// @ts-expect-error - Reserved for future use in offline map planning
+const _EMERGENCY_STOPS_LA_SF: RouteStop[] = [
   {
     id: 'gas-1',
     name: 'Chevron (Gorman)',
@@ -371,13 +369,25 @@ export class RoutePlanningService {
     const { topRated, budgetFriendly } = this.categorizeMotels(request);
     const offlineMapPlan = this.buildOfflineMapPlan(request, routeData);
     
+    // Build budget object only with defined properties
+    const budget = request.budget ? (() => {
+      const budgetObj: { motelPerNight?: number; mealBudget?: number } = {};
+      if (request.budget.motelPerNight !== undefined) {
+        budgetObj.motelPerNight = request.budget.motelPerNight;
+      }
+      if (request.budget.mealBudget !== undefined) {
+        budgetObj.mealBudget = request.budget.mealBudget;
+      }
+      return Object.keys(budgetObj).length > 0 ? budgetObj : undefined;
+    })() : undefined;
+    
     return {
       inputsRecognized: {
         origin: request.origin,
         destination: request.destination,
         date: request.departureDate,
         travelers: request.travelers,
-        budget: request.budget
+        ...(budget && { budget })
       },
       routeSummary,
       stopOptionSets,
@@ -547,7 +557,7 @@ export class RoutePlanningService {
     };
   }
   
-  private generateUserPrompt(request: RouteRequest): string {
+  private generateUserPrompt(_request: RouteRequest): string {
     return `Please select your preferences:
 1. Choose 3-5 POIs from the Stop Option Sets above
 2. Select 1-2 restaurants for your meals
@@ -565,13 +575,18 @@ After you make your selections, I'll generate:
     const estimatedDistance = 300; // Default estimate
     const estimatedTime = 300; // 5 hours
     
+    const budget = request.budget ? {
+      ...(request.budget.motelPerNight !== undefined && { motelPerNight: request.budget.motelPerNight }),
+      ...(request.budget.mealBudget !== undefined && { mealBudget: request.budget.mealBudget })
+    } : undefined;
+    
     return {
       inputsRecognized: {
         origin: request.origin,
         destination: request.destination,
         date: request.departureDate,
         travelers: request.travelers,
-        budget: request.budget
+        ...(budget && Object.keys(budget).length > 0 && { budget })
       },
       routeSummary: {
         origin: request.origin,
@@ -598,7 +613,7 @@ After you make your selections, I'll generate:
     };
   }
   
-  private generateGenericStopSets(request: RouteRequest, routeData: any): StopOptionSet[] {
+  private generateGenericStopSets(_request: RouteRequest, routeData: any): StopOptionSet[] {
     return [{
       setId: uuidv4(),
       label: 'Generic Stop Options',
@@ -663,7 +678,7 @@ After you make your selections, I'll generate:
         description: stop.description,
         startTime: currentTime.toISOString(),
         endTime: stopEndTime.toISOString(),
-        location: stop.address,
+        ...(stop.address && { location: stop.address }),
         coordinates: stop.coordinates,
         type: stop.type === 'restaurant' ? 'meal' : stop.type === 'motel' ? 'overnight' : 'stop'
       });
@@ -721,5 +736,3 @@ After you make your selections, I'll generate:
   private corridorWidth = 25;
 }
 
-
->>>>>>> Incoming (Background Agent changes)

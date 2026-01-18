@@ -1,5 +1,3 @@
-<<<<<<< Current (Your changes)
-=======
 // Recommendation-related types and interfaces
 
 export interface RecommendationRequest {
@@ -79,6 +77,3 @@ export interface ApiResponse<T = any> {
   error?: string;
   message?: string;
 }
-
-
->>>>>>> Incoming (Background Agent changes)

@@ -1,0 +1,64 @@
+flowchart TD
+    User([User Devices])
+    
+    %% Group components by layers
+    subgraph "Frontend & Security"
+        CloudFront[AWS CloudFront\nContent Delivery]
+        Amplify[AWS Amplify\nReact.js Frontend]
+        WAF[AWS WAF\nWeb Application Firewall]
+    end
+    
+    subgraph "API Services"
+        Cognito[AWS Cognito\nAuthentication]
+        APIGateway[AWS API Gateway\nwith Caching]
+        Lambda[AWS Lambda\nFastAPI Backend]
+    end
+    
+    subgraph "Data Layer"
+        DAX[DynamoDB DAX\nCaching Layer]
+        DynamoDB[(AWS DynamoDB\nNoSQL Database)]
+        RDS[(AWS RDS\nPostgreSQL)]
+        S3[(AWS S3\nFile Storage)]
+    end
+    
+    subgraph "Business Services"
+        SQS[AWS SQS\nMessage Queue]
+        SNS[AWS SNS\nNotifications]
+        SageMaker[AWS SageMaker\nML Recommendations]
+    end
+    
+    subgraph "Analytics & Monitoring"
+        Kinesis[AWS Kinesis\nData Streaming]
+        Redshift[(AWS Redshift\nData Warehouse)]
+        CloudWatch[AWS CloudWatch\nMonitoring]
+        CloudFormation[AWS CloudFormation\nIaC]
+    end
+    
+    %% Main user flow
+    User -->|1. Access| CloudFront
+    CloudFront -->|2. Deliver Content| Amplify
+    CloudFront -->|3. API Requests| WAF
+    WAF -->|4. Filtered Requests| APIGateway
+    APIGateway -->|5. Authentication| Cognito
+    APIGateway -->|6. Process Requests| Lambda
+    
+    %% Database interactions
+    Lambda <--> DAX
+    DAX <--> DynamoDB
+    Lambda <--> RDS
+    Lambda <--> S3
+    
+    %% Business services interactions
+    Lambda --> SQS
+    SQS --> Lambda
+    Lambda --> SNS
+    SNS --> User
+    Lambda <--> SageMaker
+    
+    %% Analytics flow
+    Lambda --> Kinesis
+    Kinesis --> Redshift
+    
+    %% Infrastructure management (using dotted lines to reduce visual clutter)
+    CloudFormation -.->|Manages Infrastructure| APIGateway
+    CloudWatch -.->|Monitors Services| Lambda

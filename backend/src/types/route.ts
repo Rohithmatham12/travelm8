@@ -1,5 +1,3 @@
-<<<<<<< Current (Your changes)
-=======
 // Route-based travel planning types
 
 export interface RouteRequest {
@@ -138,6 +136,3 @@ export interface FinalItinerary {
     };
   };
 }
-
-
->>>>>>> Incoming (Background Agent changes)
