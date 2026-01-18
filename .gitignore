@@ -44,6 +44,11 @@ cdk.out/
 .aws/
 credentials
 config
+*accessKeys*.csv
+*credentials*.csv
+*secret*.csv
+*.pem
+*.key
 
 # Other
 npm-debug.log*
