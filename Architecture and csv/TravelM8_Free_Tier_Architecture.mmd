@@ -1,0 +1,73 @@
+flowchart TD
+    User([User Devices])
+    
+    %% Group components by layers
+    subgraph "Frontend & Security (FREE TIER)"
+        CloudFront[AWS CloudFront<br/>1 TB data transfer<br/>10M requests/month]
+        Amplify[AWS Amplify<br/>React.js Frontend]
+        S3[AWS S3<br/>5 GB storage<br/>20,000 GET requests]
+    end
+    
+    subgraph "API Services (FREE TIER)"
+        Cognito[AWS Cognito<br/>50,000 MAUs]
+        APIGateway[AWS API Gateway<br/>1M requests/month]
+        Lambda[AWS Lambda<br/>1M requests<br/>400,000 GB-seconds]
+    end
+    
+    subgraph "Data Layer (FREE TIER)"
+        DynamoDB[(AWS DynamoDB<br/>25 GB storage<br/>25 RCU/WCU)]
+        S3Data[(AWS S3<br/>File Storage)]
+    end
+    
+    subgraph "Business Services (FREE TIER)"
+        SQS[AWS SQS<br/>1M requests/month]
+        SNS[AWS SNS<br/>1M requests/month]
+        LambdaML[AWS Lambda<br/>AI/ML Libraries<br/>Free tier]
+    end
+    
+    subgraph "Analytics & Monitoring (FREE TIER)"
+        CloudWatch[AWS CloudWatch<br/>10 custom metrics<br/>5GB log ingestion]
+        CostAlarm[Cost Alerts<br/>$5 threshold]
+    end
+    
+    %% Main user flow
+    User -->|1. Access| CloudFront
+    CloudFront -->|2. Deliver Content| S3
+    CloudFront -->|3. API Requests| APIGateway
+    APIGateway -->|4. Authentication| Cognito
+    APIGateway -->|5. Process Requests| Lambda
+    
+    %% Database interactions
+    Lambda <--> DynamoDB
+    Lambda <--> S3Data
+    
+    %% Business services interactions
+    Lambda --> SQS
+    SQS --> Lambda
+    Lambda --> SNS
+    SNS --> User
+    Lambda <--> LambdaML
+    
+    %% Analytics flow
+    Lambda --> CloudWatch
+    CloudWatch --> CostAlarm
+    
+    %% FREE TIER ALTERNATIVES
+    subgraph "Costly Services Replaced"
+        DAX[❌ DAX<br/>→ DynamoDB + Lambda caching]
+        RDS[❌ RDS<br/>→ DynamoDB for all data]
+        WAF[❌ WAF<br/>→ API Gateway security]
+        SageMaker[❌ SageMaker<br/>→ Lambda AI/ML]
+        Kinesis[❌ Kinesis<br/>→ SQS processing]
+        Redshift[❌ Redshift<br/>→ DynamoDB + CloudWatch]
+    end
+    
+    %% Cost summary
+    subgraph "💰 TOTAL COST: $0"
+        FreeTier[✅ All services within<br/>AWS Free Tier limits]
+    end
+
+
+
+
+

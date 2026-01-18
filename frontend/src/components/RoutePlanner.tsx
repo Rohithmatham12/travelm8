@@ -1,5 +1,3 @@
-<<<<<<< Current (Your changes)
-=======
 import React, { useState } from 'react';
 import { post } from '../utils/api';
 import './RoutePlanner.css';
@@ -578,6 +576,3 @@ const RoutePlanner: React.FC = () => {
 };
 
 export default RoutePlanner;
-
-
->>>>>>> Incoming (Background Agent changes)

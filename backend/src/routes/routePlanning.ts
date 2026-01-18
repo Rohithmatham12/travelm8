@@ -1,5 +1,3 @@
-<<<<<<< Current (Your changes)
-=======
 import { Router } from 'express';
 import { authenticateToken, AuthRequest } from '../utils/auth';
 import { RoutePlanningService } from '../services/routePlanningService';
@@ -35,10 +33,10 @@ routePlanningRouter.post('/plan', async (req: AuthRequest, res) => {
     }
 
     const routePlan = await routePlanningService.planRoute(request);
-    successResponse(res, routePlan, 'Route planned successfully');
+    return successResponse(res, routePlan, 'Route planned successfully');
   } catch (error) {
     console.error('Error planning route:', error);
-    internalErrorResponse(res, 'Failed to plan route');
+    return internalErrorResponse(res, 'Failed to plan route');
   }
 });
 
@@ -54,15 +52,19 @@ routePlanningRouter.post('/finalize', async (req: AuthRequest, res) => {
       return badRequestResponse(res, 'Route request and selections are required');
     }
 
+    // Relaxed validation: allow finalizing with restaurants or motels even without POIs
     if (!selections.selectedPois || selections.selectedPois.length === 0) {
-      return badRequestResponse(res, 'Please select at least one POI');
+      if ((!selections.selectedRestaurants || selections.selectedRestaurants.length === 0) &&
+          !selections.selectedMotel) {
+        return badRequestResponse(res, 'Please select at least one stop (POI, restaurant, or motel)');
+      }
     }
 
     const itinerary = await routePlanningService.generateFinalItinerary(routeRequest, selections);
-    successResponse(res, itinerary, 'Itinerary generated successfully');
+    return successResponse(res, itinerary, 'Itinerary generated successfully');
   } catch (error) {
     console.error('Error generating itinerary:', error);
-    internalErrorResponse(res, 'Failed to generate itinerary');
+    return internalErrorResponse(res, 'Failed to generate itinerary');
   }
 });
 
@@ -102,19 +104,16 @@ END:VEVENT
 
     icsContent += 'END:VCALENDAR';
 
-    successResponse(res, {
+    return successResponse(res, {
       icsContent,
       filename: `${tripTitle || 'road-trip'}.ics`
     }, 'Calendar export ready');
   } catch (error) {
     console.error('Error exporting calendar:', error);
-    internalErrorResponse(res, 'Failed to export calendar');
+    return internalErrorResponse(res, 'Failed to export calendar');
   }
 });
 
 function formatDateForICS(date: Date): string {
   return date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
 }
-
-
->>>>>>> Incoming (Background Agent changes)
