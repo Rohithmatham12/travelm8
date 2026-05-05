@@ -14,7 +14,7 @@ export interface AuthResponse {
 }
 
 const isStaticDemo = (): boolean =>
-  process.env.REACT_APP_DEMO_MODE === 'true' || window.location.hostname.endsWith('github.io');
+  process.env.REACT_APP_DEMO_MODE === 'true';
 
 function demoAuth(email: string, name?: string): AuthResponse {
   const user = {

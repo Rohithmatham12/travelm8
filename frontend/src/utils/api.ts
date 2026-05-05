@@ -1,8 +1,10 @@
 // API Utility Functions
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+const API_BASE_URL =
+  process.env.REACT_APP_API_URL ||
+  (window.location.hostname === 'localhost' ? 'http://localhost:3001' : '');
 
 const isStaticDemo = (): boolean =>
-  process.env.REACT_APP_DEMO_MODE === 'true' || window.location.hostname.endsWith('github.io');
+  process.env.REACT_APP_DEMO_MODE === 'true';
 
 const demoTrips = [
   {

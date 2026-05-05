@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import type { SignOptions } from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { Request, Response, NextFunction } from 'express';
 import { putItem, getItem } from './storage';
@@ -24,10 +25,11 @@ export interface AuthRequest extends Request {
  * Generate JWT token
  */
 export function generateToken(userId: string, email: string): string {
+  const options: SignOptions = { expiresIn: JWT_EXPIRES_IN as SignOptions['expiresIn'] };
   return jwt.sign(
     { userId, email },
     JWT_SECRET,
-    { expiresIn: JWT_EXPIRES_IN }
+    options
   );
 }
 
@@ -144,4 +146,3 @@ export async function loginUser(email: string, password: string): Promise<{ user
 
   return { user, token };
 }
-
