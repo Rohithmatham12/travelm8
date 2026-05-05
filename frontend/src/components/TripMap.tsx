@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { ItineraryItem } from '../types/trip';
@@ -79,9 +79,7 @@ const TripMap: React.FC<TripMapProps> = ({
         center={center}
         zoom={zoom}
         style={{ height: '100%', width: '100%' }}
-        whenCreated={(map) => {
-          mapRef.current = map;
-        }}
+        ref={mapRef}
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -105,4 +103,3 @@ const TripMap: React.FC<TripMapProps> = ({
 };
 
 export default TripMap;
-

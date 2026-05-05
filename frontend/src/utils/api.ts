@@ -1,6 +1,224 @@
 // API Utility Functions
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
+const isStaticDemo = (): boolean =>
+  process.env.REACT_APP_DEMO_MODE === 'true' || window.location.hostname.endsWith('github.io');
+
+const demoTrips = [
+  {
+    tripId: 'demo-pch-weekend',
+    userId: 'demo-user',
+    title: 'Pacific Coast Weekend',
+    description: 'A route-first coastal escape with verified stops, meal timing, and motel options.',
+    destination: 'San Francisco',
+    startDate: '2026-06-12',
+    endDate: '2026-06-14',
+    status: 'planning',
+    budget: 650,
+    currency: 'USD',
+    travelers: 2,
+    preferences: {
+      accommodationType: 'hotel',
+      transportMode: 'car',
+      activityTypes: ['scenic', 'food', 'local stops'],
+      budgetLevel: 'mid-range',
+    },
+    itinerary: [],
+    createdAt: '2026-05-01T12:00:00.000Z',
+    updatedAt: '2026-05-01T12:00:00.000Z',
+  },
+  {
+    tripId: 'demo-vegas-drive',
+    userId: 'demo-user',
+    title: 'LA to Vegas Smart Drive',
+    description: 'Budget-aware road trip with rest stops and late-night arrival planning.',
+    destination: 'Las Vegas',
+    startDate: '2026-07-03',
+    endDate: '2026-07-05',
+    status: 'draft',
+    budget: 480,
+    currency: 'USD',
+    travelers: 3,
+    preferences: {
+      accommodationType: 'hotel',
+      transportMode: 'car',
+      activityTypes: ['roadside attractions', 'restaurants'],
+      budgetLevel: 'budget',
+    },
+    itinerary: [],
+    createdAt: '2026-05-02T09:00:00.000Z',
+    updatedAt: '2026-05-02T09:00:00.000Z',
+  },
+];
+
+function demoRoutePlan(): ApiResponse {
+  return {
+    success: true,
+    data: {
+      inputsRecognized: {},
+      routeSummary: {
+        origin: 'Los Angeles',
+        destination: 'San Francisco',
+        totalDistance: 382,
+        estimatedDriveTime: 360,
+        suggestedStops: 5,
+        majorCities: ['Los Angeles', 'Bakersfield', 'Fresno', 'Modesto', 'San Francisco'],
+      },
+      stopOptionSets: [
+        {
+          setId: 'demo-midway',
+          label: 'Mid-route reset',
+          distanceRange: { from: 150, to: 230 },
+          pois: [
+            {
+              id: 'poi-harris-ranch',
+              name: 'Harris Ranch',
+              category: 'landmark',
+              type: 'poi',
+              description: 'Classic road-trip stop with food, lodging, and a quick recharge point.',
+              coordinates: { lat: 36.253, lng: -120.238 },
+              address: '24505 W Dorris Ave, Coalinga, CA',
+              detourTime: 2,
+              estimatedTimeAtStop: 45,
+              rating: 4.3,
+              reviewCount: 4500,
+              verificationStatus: 'verified',
+              distanceFromStart: 195,
+            },
+          ],
+          restaurants: [
+            {
+              id: 'food-kettleman',
+              name: 'In-N-Out Burger Kettleman City',
+              category: 'fast-food',
+              type: 'restaurant',
+              description: 'Fast, predictable meal stop near the highway.',
+              coordinates: { lat: 35.9936, lng: -119.9617 },
+              detourTime: 2,
+              estimatedTimeAtStop: 30,
+              rating: 4.4,
+              reviewCount: 2800,
+              priceRange: '$',
+              priceEstimate: 12,
+              currency: 'USD',
+              budgetFit: 'within-budget',
+              verificationStatus: 'verified',
+              distanceFromStart: 160,
+            },
+          ],
+          motels: [
+            {
+              id: 'motel-buttonwillow',
+              name: 'Motel 6 Buttonwillow',
+              category: 'motel',
+              type: 'motel',
+              description: 'Budget-friendly motel close to I-5 for flexible overnight planning.',
+              coordinates: { lat: 35.4008, lng: -119.4697 },
+              detourTime: 1,
+              estimatedTimeAtStop: 480,
+              rating: 3.6,
+              reviewCount: 420,
+              priceRange: '$',
+              priceEstimate: 65,
+              currency: 'USD',
+              budgetFit: 'within-budget',
+              verificationStatus: 'verified',
+              amenities: ['Free WiFi', 'Parking'],
+              distanceFromStart: 120,
+            },
+          ],
+        },
+      ],
+      topRatedMotels: [],
+      budgetFriendlyMotels: [],
+      offlineMapPlan: {
+        corridorWidth: 20,
+        regions: [],
+        instructions: ['Download the route corridor before departure', 'Cache stop details for low-signal areas'],
+        estimatedDownloadSize: '85 MB',
+      },
+      calendarExportReady: true,
+      userChoicePrompt: 'Choose your preferred stops and motel to generate a timed itinerary.',
+    },
+  };
+}
+
+function demoFinalize(): ApiResponse {
+  return {
+    success: true,
+    data: {
+      itineraryId: 'demo-itinerary',
+      routeId: 'route-1',
+      totalCost: 142,
+      totalDuration: 455,
+      calendarEvents: [
+        {
+          id: 'event-1',
+          title: 'Depart Los Angeles',
+          description: 'Start the TravelM8 route plan.',
+          startTime: '2026-06-12T08:00:00.000Z',
+          endTime: '2026-06-12T08:15:00.000Z',
+          location: 'Los Angeles',
+        },
+      ],
+      stops: [],
+    },
+  };
+}
+
+function demoApiResponse<T>(endpoint: string, options: RequestInit): ApiResponse<T> | null {
+  if (!isStaticDemo()) return null;
+
+  if (endpoint.startsWith('/trips')) {
+    if (options.method === 'GET') {
+      const match = endpoint.match(/^\/trips\/([^?]+)/);
+      if (match) {
+        const trip = demoTrips.find((item) => item.tripId === match[1]) || demoTrips[0];
+        return { success: true, data: trip as T };
+      }
+      return { success: true, data: { trips: demoTrips } as T };
+    }
+    return { success: true, data: demoTrips[0] as T };
+  }
+
+  if (endpoint === '/route/plan') return demoRoutePlan() as ApiResponse<T>;
+  if (endpoint === '/route/finalize') return demoFinalize() as ApiResponse<T>;
+  if (endpoint === '/recommendations') {
+    return {
+      success: true,
+      data: {
+        destination: 'Tokyo',
+        duration: 7,
+        recommendations: {
+          accommodations: [
+            { title: 'Hotel Metropolitan Tokyo Marunouchi', description: 'Central stay near rail connections.', price: 210, rating: 4.5 },
+          ],
+          activities: [
+            { title: 'Yanaka walking route', description: 'Low-crowd neighborhood route with food and temples.', price: 20, rating: 4.7 },
+          ],
+          restaurants: [
+            { title: 'Tsukiji outer market breakfast', description: 'Morning food stop aligned with jet lag-friendly timing.', price: 28, rating: 4.6 },
+          ],
+        },
+        itinerary: [],
+        totalEstimatedCost: 2450,
+        tips: ['Reserve high-demand restaurants early', 'Group nearby stops by train line'],
+      } as T,
+    };
+  }
+  if (endpoint === '/route/export-calendar') {
+    return {
+      success: true,
+      data: {
+        filename: 'travelm8-demo.ics',
+        icsContent: 'BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nSUMMARY:TravelM8 Demo Route\nEND:VEVENT\nEND:VCALENDAR',
+      } as T,
+    };
+  }
+
+  return null;
+}
+
 export interface ApiResponse<T = any> {
   success: boolean;
   data?: T;
@@ -58,6 +276,11 @@ async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
+  const demoResponse = demoApiResponse<T>(endpoint, options);
+  if (demoResponse) {
+    return Promise.resolve(demoResponse);
+  }
+
   const token = getAuthToken();
   
   const headers: HeadersInit = {

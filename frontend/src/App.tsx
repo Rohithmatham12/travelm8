@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import './App.css';
 
 // Import components
@@ -15,6 +15,7 @@ import TripRecommendations from './components/TripRecommendations';
 import AIRecommendations from './components/AIRecommendations';
 import Header from './components/Header';
 import ProtectedRoute from './components/ProtectedRoute';
+import RoutePlanner from './components/RoutePlanner';
 
 function App() {
   return (
@@ -32,6 +33,7 @@ function App() {
                     <Routes>
                       <Route path="/" element={<Navigate to="/dashboard" replace />} />
                       <Route path="/dashboard" element={<Dashboard />} />
+                      <Route path="/route-planner" element={<RoutePlanner />} />
                       <Route path="/ai-recommendations" element={<AIRecommendations />} />
                       <Route path="/trips" element={<TripList />} />
                       <Route path="/trips/new" element={<CreateTrip />} />
