@@ -1,4 +1,6 @@
-import { post, setAuthToken, setUser, removeAuthToken, removeUser } from './api';
+import { post, setAuthToken, setUser, getUser, removeAuthToken, removeUser } from './api';
+
+export { getUser };
 
 export interface User {
   userId: string;
@@ -11,10 +13,29 @@ export interface AuthResponse {
   token: string;
 }
 
+const isStaticDemo = (): boolean =>
+  process.env.REACT_APP_DEMO_MODE === 'true' || window.location.hostname.endsWith('github.io');
+
+function demoAuth(email: string, name?: string): AuthResponse {
+  const user = {
+    userId: 'demo-user',
+    email: email || 'demo@travelm8.app',
+    name: name || 'TravelM8 Demo',
+  };
+  const token = 'travelm8-demo-token';
+  setAuthToken(token);
+  setUser(user);
+  return { user, token };
+}
+
 /**
  * Register a new user
  */
 export async function register(email: string, password: string, name?: string): Promise<AuthResponse> {
+  if (isStaticDemo()) {
+    return demoAuth(email, name);
+  }
+
   const response = await post<{ user: User; token: string }>('/auth/register', {
     email,
     password,
@@ -34,6 +55,10 @@ export async function register(email: string, password: string, name?: string): 
  * Login user
  */
 export async function login(email: string, password: string): Promise<AuthResponse> {
+  if (isStaticDemo()) {
+    return demoAuth(email);
+  }
+
   const response = await post<{ user: User; token: string }>('/auth/login', {
     email,
     password,
@@ -69,4 +94,3 @@ export function isAuthenticated(): boolean {
 export function getAuthToken(): string | null {
   return localStorage.getItem('authToken');
 }
-

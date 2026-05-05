@@ -9,6 +9,7 @@ interface Recommendation {
   price: number;
   rating?: number;
   duration?: number;
+  time?: string;
   category?: string;
   cuisine?: string;
   location?: string;
@@ -90,7 +91,7 @@ const TripRecommendations: React.FC = () => {
         preferences: trip.preferences || {}
       };
 
-      const result = await post('/recommendations', recommendationRequest);
+      const result = await post<RecommendationData>('/recommendations', recommendationRequest);
 
       if (result.success && result.data) {
         setRecommendations(result.data);

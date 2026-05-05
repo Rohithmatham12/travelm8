@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { post } from '../utils/api';
-import { parseApiResponse } from '../utils/api';
 
 interface Recommendation {
   title: string;
@@ -9,6 +8,7 @@ interface Recommendation {
   price: number;
   rating?: number;
   duration?: number;
+  time?: string;
   category?: string;
   cuisine?: string;
   location?: string;
@@ -101,7 +101,7 @@ const AIRecommendations: React.FC = () => {
         preferences: formData.preferences
       };
 
-      const result = await post('/recommendations', recommendationRequest);
+      const result = await post<RecommendationData>('/recommendations', recommendationRequest);
 
       if (result.success && result.data) {
         setRecommendations(result.data);
@@ -521,8 +521,5 @@ const AIRecommendations: React.FC = () => {
 };
 
 export default AIRecommendations;
-
-
-
 
 

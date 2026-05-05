@@ -122,6 +122,12 @@ const Dashboard: React.FC = () => {
               <h3>AI Recommendations</h3>
               <p>Get personalized travel suggestions powered by AI</p>
             </Link>
+
+            <Link to="/route-planner" className="action-card">
+              <div className="action-icon">🛣️</div>
+              <h3>Route Planner</h3>
+              <p>Build a road-trip route with stops, meals, motels, and calendar export</p>
+            </Link>
           </div>
         </div>
       </div>

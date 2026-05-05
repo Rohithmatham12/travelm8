@@ -45,18 +45,9 @@ const TripDetail: React.FC = () => {
       const response = await del(`/trips/${tripId}`);
       
       if (response.success) {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      }).response;
-
-      const data = await parseApiResponse(response);
-      
-      if (data.success) {
         navigate('/trips');
       } else {
-        setError(data.error || 'Failed to delete trip');
+        setError(response.error || 'Failed to delete trip');
       }
     } catch (err) {
       console.error('Error deleting trip:', err);
