@@ -67,8 +67,7 @@ export class TripService {
     const result = await updateItem(
       TRIPS_TABLE_NAME,
       { userId, tripId },
-      updateData,
-      'attribute_exists(userId) AND attribute_exists(tripId)'
+      updateData
     );
 
     return result as Trip | null;

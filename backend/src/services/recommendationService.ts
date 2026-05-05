@@ -446,19 +446,19 @@ export class RecommendationService {
       else if (dayHour >= 17 && dayHour < 22) dayTimeOfDay = 'dinner';
       else dayTimeOfDay = 'lateNight';
 
-      const dayActivities = this.selectRandomItems(recommendations.activities, 2);
+      const dayActivities = this.selectRandomItems<Recommendation>(recommendations.activities, 2);
       
       // Select time-appropriate restaurants
       const timeBasedRestaurants = recommendations.restaurants.filter((r: any) => 
         !r.recommendedTime || r.recommendedTime === dayTimeOfDay || r.recommendedTime === 'any'
       );
-      const dayMeals = this.selectRandomItems(
+      const dayMeals = this.selectRandomItems<Recommendation>(
         timeBasedRestaurants.length > 0 ? timeBasedRestaurants : recommendations.restaurants, 
         2
       );
       
       const dayAccommodation = i === 0 ? recommendations.accommodations[0] : undefined;
-      const dayTransport = this.selectRandomItems(recommendations.transport, 1);
+      const dayTransport = this.selectRandomItems<Recommendation>(recommendations.transport, 1);
       
       // Add motel recommendation if late night
       const dayMotels = dayTimeOfDay === 'lateNight' ? 

@@ -18,8 +18,10 @@ if (!fs.existsSync(dataDir)) {
 }
 
 // Middleware
+const allowedOrigin = process.env.FRONTEND_URL || 'http://localhost:3000';
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: process.env.NODE_ENV === 'production' ? true : allowedOrigin,
   credentials: true
 }));
 app.use(express.json());
@@ -34,8 +36,16 @@ app.use('/travel-info', externalRouter);
 app.use('/flights', externalRouter);
 app.use('/hotels', externalRouter);
 
+const frontendBuildPath = path.join(__dirname, '../../frontend/build');
+if (fs.existsSync(frontendBuildPath)) {
+  app.use(express.static(frontendBuildPath));
+  app.get('*', (_req, res) => {
+    res.sendFile(path.join(frontendBuildPath, 'index.html'));
+  });
+}
+
 // Error handling middleware
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('Error:', err);
   res.status(err.status || 500).json({
     success: false,
@@ -50,4 +60,3 @@ app.listen(PORT, () => {
 });
 
 export default app;
-

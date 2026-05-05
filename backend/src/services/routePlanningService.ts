@@ -323,7 +323,6 @@ const VERIFIED_MOTELS_LA_SF: RouteStop[] = [
 ];
 
 // Emergency stops (gas, hospitals) - Reserved for future offline map planning
-// @ts-expect-error - Reserved for future use in offline map planning
 const _EMERGENCY_STOPS_LA_SF: RouteStop[] = [
   {
     id: 'gas-1',
@@ -735,4 +734,3 @@ After you make your selections, I'll generate:
   
   private corridorWidth = 25;
 }
-
