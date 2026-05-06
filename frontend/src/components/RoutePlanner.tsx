@@ -135,6 +135,7 @@ const RoutePlanner: React.FC = () => {
           origin,
           destination,
           departureDate: departureDate || new Date().toISOString().split('T')[0],
+          departureTime,
           travelers,
           budget: { motelPerNight: motelBudget, mealBudget }
         },
@@ -188,24 +189,24 @@ const RoutePlanner: React.FC = () => {
   const getVerificationBadge = (status: string) => {
     switch (status) {
       case 'verified':
-        return <span className="badge verified">✓ Verified</span>;
+        return <span className="badge verified">Verified</span>;
       case 'partially-verified':
-        return <span className="badge partial">⚠ Partially Verified</span>;
+        return <span className="badge partial">Estimated</span>;
       default:
-        return <span className="badge unverified">✗ Not Verified</span>;
+        return <span className="badge unverified">Unverified</span>;
     }
   };
 
   const getBudgetBadge = (budgetFit?: string) => {
     switch (budgetFit) {
       case 'within-budget':
-        return <span className="badge budget-ok">💰 Within Budget</span>;
+        return <span className="badge budget-ok">Within Budget</span>;
       case 'slightly-above':
-        return <span className="badge budget-warn">💸 Slightly Above</span>;
+        return <span className="badge budget-warn">Slightly Above</span>;
       case 'above-budget':
-        return <span className="badge budget-over">❌ Above Budget</span>;
+        return <span className="badge budget-over">Above Budget</span>;
       default:
-        return <span className="badge budget-unknown">❓ Price Unknown</span>;
+        return <span className="badge budget-unknown">Price Unknown</span>;
     }
   };
 
@@ -229,16 +230,35 @@ const RoutePlanner: React.FC = () => {
     </>
   );
 
+  const hasSelections = selectedPois.length > 0 || selectedRestaurants.length > 0 || !!selectedMotel;
+
   return (
     <div className="route-planner">
       <header className="planner-header">
-        <h1>🚗 DayMate Route Planner</h1>
-        <p>AI-powered route-based travel assistant with verified stops</p>
+        <div className="planner-hero">
+          <span className="planner-kicker">Route Copilot</span>
+          <h1>Build a road-trip plan around the drive, not just the destination.</h1>
+          <p>
+            Plan stop zones, meals, motel backups, budget fit, fatigue risk, and offline packet
+            guidance using free open-map services.
+          </p>
+        </div>
+        <div className="planner-signal-grid">
+          <div>
+            <strong>Free APIs</strong>
+            <span>Nominatim, OSRM, OpenStreetMap, Leaflet, and ICS export.</span>
+          </div>
+          <div>
+            <strong>Explainable stops</strong>
+            <span>Every card shows route fit, detour, budget, verification, and risk context.</span>
+          </div>
+        </div>
       </header>
 
       {/* Route Input Form */}
       <section className="route-form">
-        <h2>📍 Plan Your Route</h2>
+        <span className="section-kicker">Route input</span>
+        <h2>Plan your route</h2>
         <div className="form-row">
           <div className="form-group">
             <label>Origin</label>
@@ -320,7 +340,7 @@ const RoutePlanner: React.FC = () => {
           onClick={handlePlanRoute}
           disabled={loading}
         >
-          {loading ? 'Planning...' : '🗺️ Plan My Route'}
+          {loading ? 'Planning...' : 'Plan My Route'}
         </button>
       </section>
 
@@ -330,7 +350,8 @@ const RoutePlanner: React.FC = () => {
       {routePlan && (
         <>
           <section className="route-summary">
-            <h2>📊 Route Summary</h2>
+            <span className="section-kicker">Drive summary</span>
+            <h2>Route Summary</h2>
             <div className="summary-cards">
               <div className="summary-card">
                 <span className="label">Total Distance</span>
@@ -353,7 +374,7 @@ const RoutePlanner: React.FC = () => {
           {/* Stop Option Sets */}
           {routePlan.stopOptionSets.map((optionSet) => (
             <section key={optionSet.setId} className="stop-options">
-              <h3>📍 {optionSet.label}</h3>
+              <h3>{optionSet.label}</h3>
               <p className="distance-range">
                 Distance: {optionSet.distanceRange.from} - {optionSet.distanceRange.to} miles from start
               </p>
@@ -361,7 +382,7 @@ const RoutePlanner: React.FC = () => {
               {/* POIs */}
               {optionSet.pois.length > 0 && (
                 <div className="stop-category">
-                  <h4>🏛️ Places to Explore</h4>
+                  <h4>Places to Explore</h4>
                   <div className="stops-grid">
                     {optionSet.pois.map((poi) => (
                       <div
@@ -376,12 +397,12 @@ const RoutePlanner: React.FC = () => {
                         <p className="category">{poi.category}</p>
                         <p className="description">{poi.description}</p>
                         <div className="stop-meta">
-                          <span>⏱️ {poi.detourTime} min detour</span>
-                          <span>🕐 {poi.estimatedTimeAtStop} min at stop</span>
+                          <span>{poi.detourTime} min detour</span>
+                          <span>{poi.estimatedTimeAtStop} min at stop</span>
                         </div>
                         {poi.rating && (
                           <div className="rating">
-                            ⭐ {poi.rating.toFixed(1)} ({poi.reviewCount} reviews)
+                            {poi.rating.toFixed(1)} rating ({poi.reviewCount} reviews)
                           </div>
                         )}
                         {poi.priceEstimate && (
@@ -399,7 +420,7 @@ const RoutePlanner: React.FC = () => {
               {/* Restaurants */}
               {optionSet.restaurants.length > 0 && (
                 <div className="stop-category">
-                  <h4>🍽️ Food Stops</h4>
+                  <h4>Food Stops</h4>
                   <div className="stops-grid">
                     {optionSet.restaurants.map((restaurant) => (
                       <div
@@ -414,19 +435,19 @@ const RoutePlanner: React.FC = () => {
                         <p className="category">{restaurant.category} • {restaurant.priceRange}</p>
                         <p className="description">{restaurant.description}</p>
                         <div className="stop-meta">
-                          <span>⏱️ {restaurant.detourTime} min detour</span>
-                          <span>🕐 {restaurant.estimatedTimeAtStop} min meal</span>
+                          <span>{restaurant.detourTime} min detour</span>
+                          <span>{restaurant.estimatedTimeAtStop} min meal</span>
                         </div>
                         {restaurant.rating && (
                           <div className="rating">
-                            ⭐ {restaurant.rating.toFixed(1)} ({restaurant.reviewCount} reviews)
+                            {restaurant.rating.toFixed(1)} rating ({restaurant.reviewCount} reviews)
                           </div>
                         )}
                         <div className="price">
                           ~${restaurant.priceEstimate}/person {getBudgetBadge(restaurant.budgetFit)}
                         </div>
                         {restaurant.openHours && (
-                          <div className="hours">🕐 {restaurant.openHours}</div>
+                          <div className="hours">{restaurant.openHours}</div>
                         )}
                         {renderStopInsight(restaurant)}
                       </div>
@@ -438,7 +459,7 @@ const RoutePlanner: React.FC = () => {
               {/* Motels in this set */}
               {optionSet.motels.length > 0 && (
                 <div className="stop-category">
-                  <h4>🏨 Overnight Options</h4>
+                  <h4>Overnight Options</h4>
                   <div className="stops-grid">
                     {optionSet.motels.map((motel) => (
                       <div
@@ -453,11 +474,11 @@ const RoutePlanner: React.FC = () => {
                         <p className="category">{motel.category}</p>
                         <p className="description">{motel.description}</p>
                         <div className="stop-meta">
-                          <span>⏱️ {motel.detourTime} min from route</span>
+                          <span>{motel.detourTime} min from route</span>
                         </div>
                         {motel.rating && (
                           <div className="rating">
-                            ⭐ {motel.rating.toFixed(1)} ({motel.reviewCount} reviews)
+                            {motel.rating.toFixed(1)} rating ({motel.reviewCount} reviews)
                           </div>
                         )}
                         <div className="price">
@@ -480,7 +501,7 @@ const RoutePlanner: React.FC = () => {
           {/* Top Rated vs Budget Motels */}
           <section className="motel-comparison">
             <div className="motel-column">
-              <h3>⭐ Top-Rated Motels</h3>
+              <h3>Top-Rated Motels</h3>
               {routePlan.topRatedMotels.map((motel) => (
                 <div
                   key={motel.id}
@@ -488,14 +509,14 @@ const RoutePlanner: React.FC = () => {
                   onClick={() => setSelectedMotel(motel.id)}
                 >
                   <h5>{motel.name}</h5>
-                  <p>⭐ {motel.rating?.toFixed(1)} ({motel.reviewCount} reviews)</p>
+                  <p>{motel.rating?.toFixed(1)} rating ({motel.reviewCount} reviews)</p>
                   <p>${motel.priceEstimate}/night • {motel.detourTime} min detour</p>
                   {getVerificationBadge(motel.verificationStatus)}
                 </div>
               ))}
             </div>
             <div className="motel-column">
-              <h3>💰 Budget-Friendly Motels</h3>
+              <h3>Budget-Friendly Motels</h3>
               {routePlan.budgetFriendlyMotels.map((motel) => (
                 <div
                   key={motel.id}
@@ -504,7 +525,7 @@ const RoutePlanner: React.FC = () => {
                 >
                   <h5>{motel.name}</h5>
                   <p>${motel.priceEstimate}/night {getBudgetBadge(motel.budgetFit)}</p>
-                  <p>⭐ {motel.rating?.toFixed(1)} • {motel.detourTime} min detour</p>
+                  <p>{motel.rating?.toFixed(1)} rating • {motel.detourTime} min detour</p>
                   {getVerificationBadge(motel.verificationStatus)}
                 </div>
               ))}
@@ -513,7 +534,7 @@ const RoutePlanner: React.FC = () => {
 
           {/* Offline Map Plan */}
           <section className="offline-maps">
-            <h3>📴 Offline Maps Plan</h3>
+            <h3>Offline Route Packet</h3>
             <div className="offline-info">
               <p><strong>Corridor Width:</strong> {routePlan.offlineMapPlan.corridorWidth} miles</p>
               <p><strong>Estimated Download:</strong> {routePlan.offlineMapPlan.estimatedDownloadSize}</p>
@@ -538,7 +559,7 @@ const RoutePlanner: React.FC = () => {
 
           {/* Selection Summary & Finalize */}
           <section className="selection-summary">
-            <h3>✅ Your Selections</h3>
+            <h3>Your Selections</h3>
             <div className="selections">
               <p><strong>POIs:</strong> {selectedPois.length} selected</p>
               <p><strong>Restaurants:</strong> {selectedRestaurants.length} selected</p>
@@ -547,9 +568,9 @@ const RoutePlanner: React.FC = () => {
             <button
               className="btn-primary finalize-btn"
               onClick={handleFinalize}
-              disabled={loading || selectedPois.length === 0}
+              disabled={loading || !hasSelections}
             >
-              {loading ? 'Generating...' : '📅 Generate Final Itinerary'}
+              {loading ? 'Generating...' : 'Generate Final Itinerary'}
             </button>
           </section>
         </>
@@ -558,20 +579,20 @@ const RoutePlanner: React.FC = () => {
       {/* Final Itinerary */}
       {finalItinerary && (
         <section className="final-itinerary">
-          <h2>📅 Your Final Itinerary</h2>
+          <h2>Your Final Itinerary</h2>
           
           <div className="cost-summary">
-            <h4>💵 Total Estimated Cost: ${finalItinerary.totalEstimatedCost.amount}</h4>
+            <h4>Total Estimated Cost: ${finalItinerary.totalEstimatedCost.amount}</h4>
             <div className="cost-breakdown">
-              <span>🏨 Motels: ${finalItinerary.totalEstimatedCost.breakdown.motels}</span>
-              <span>🍽️ Meals: ${finalItinerary.totalEstimatedCost.breakdown.meals}</span>
-              <span>🎯 Activities: ${finalItinerary.totalEstimatedCost.breakdown.activities}</span>
-              <span>⛽ Gas: ${finalItinerary.totalEstimatedCost.breakdown.gas}</span>
+              <span>Motels: ${finalItinerary.totalEstimatedCost.breakdown.motels}</span>
+              <span>Meals: ${finalItinerary.totalEstimatedCost.breakdown.meals}</span>
+              <span>Activities: ${finalItinerary.totalEstimatedCost.breakdown.activities}</span>
+              <span>Gas: ${finalItinerary.totalEstimatedCost.breakdown.gas}</span>
             </div>
           </div>
 
           <div className="calendar-events">
-            <h4>📆 Calendar Events</h4>
+            <h4>Calendar Events</h4>
             {finalItinerary.calendarEvents.map((event: any) => (
               <div key={event.id} className={`event-card ${event.type}`}>
                 <div className="event-time">
@@ -580,14 +601,14 @@ const RoutePlanner: React.FC = () => {
                 <div className="event-details">
                   <h5>{event.title}</h5>
                   <p>{event.description}</p>
-                  {event.location && <span className="location">📍 {event.location}</span>}
+                  {event.location && <span className="location">{event.location}</span>}
                 </div>
               </div>
             ))}
           </div>
 
           <button className="btn-secondary export-btn" onClick={handleExportCalendar}>
-            📥 Export to Calendar (.ics)
+            Export to Calendar (.ics)
           </button>
         </section>
       )}
