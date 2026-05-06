@@ -3,9 +3,11 @@ services:
     name: travelm8
     runtime: node
     plan: free
-    buildCommand: npm install --prefix backend && npm install --prefix frontend && npm run build --prefix frontend && npm run build --prefix backend
+    buildCommand: npm install --include=dev --prefix backend && npm install --include=dev --prefix frontend && npm run build --prefix frontend && npm run build --prefix backend
     startCommand: npm start --prefix backend
     envVars:
+      - key: NODE_VERSION
+        value: 20.11.1
       - key: NODE_ENV
         value: production
       - key: JWT_SECRET

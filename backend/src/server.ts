@@ -7,6 +7,7 @@ import { recommendationsRouter } from './routes/recommendations';
 import { externalRouter } from './routes/external';
 import { authRouter } from './routes/auth';
 import { healthRouter } from './routes/health';
+import { routePlanningRouter } from './routes/routePlanning';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -32,6 +33,7 @@ app.use('/health', healthRouter);
 app.use('/auth', authRouter);
 app.use('/trips', tripsRouter);
 app.use('/recommendations', recommendationsRouter);
+app.use('/route', routePlanningRouter);
 app.use('/travel-info', externalRouter);
 app.use('/flights', externalRouter);
 app.use('/hotels', externalRouter);

@@ -6,6 +6,7 @@ export interface User {
   userId: string;
   email: string;
   name?: string;
+  role?: 'traveler' | 'admin';
 }
 
 export interface AuthResponse {
@@ -21,6 +22,7 @@ function demoAuth(email: string, name?: string): AuthResponse {
     userId: 'demo-user',
     email: email || 'demo@travelm8.app',
     name: name || 'TravelM8 Demo',
+    role: 'traveler' as const,
   };
   const token = 'travelm8-demo-token';
   setAuthToken(token);

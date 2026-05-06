@@ -22,6 +22,9 @@ interface RouteStop {
   openHours?: string;
   amenities?: string[];
   distanceFromStart: number;
+  confidenceScore?: number;
+  whyRecommended?: string[];
+  riskFlags?: string[];
 }
 
 interface StopOptionSet {
@@ -212,6 +215,20 @@ const RoutePlanner: React.FC = () => {
     return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
   };
 
+  const renderStopInsight = (stop: RouteStop) => (
+    <>
+      {typeof stop.confidenceScore === 'number' && (
+        <div className="rating">Route fit: {stop.confidenceScore}/100</div>
+      )}
+      {stop.whyRecommended && stop.whyRecommended.length > 0 && (
+        <div className="hours">Why: {stop.whyRecommended.slice(0, 2).join(' • ')}</div>
+      )}
+      {stop.riskFlags && stop.riskFlags.length > 0 && (
+        <div className="price">Watch: {stop.riskFlags.join(', ')}</div>
+      )}
+    </>
+  );
+
   return (
     <div className="route-planner">
       <header className="planner-header">
@@ -372,6 +389,7 @@ const RoutePlanner: React.FC = () => {
                             ${poi.priceEstimate} {getBudgetBadge(poi.budgetFit)}
                           </div>
                         )}
+                        {renderStopInsight(poi)}
                       </div>
                     ))}
                   </div>
@@ -410,6 +428,7 @@ const RoutePlanner: React.FC = () => {
                         {restaurant.openHours && (
                           <div className="hours">🕐 {restaurant.openHours}</div>
                         )}
+                        {renderStopInsight(restaurant)}
                       </div>
                     ))}
                   </div>
@@ -449,6 +468,7 @@ const RoutePlanner: React.FC = () => {
                             {motel.amenities.join(' • ')}
                           </div>
                         )}
+                        {renderStopInsight(motel)}
                       </div>
                     ))}
                   </div>
