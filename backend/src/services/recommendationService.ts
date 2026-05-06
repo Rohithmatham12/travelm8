@@ -66,7 +66,8 @@ export class RecommendationService {
         activities,
         accommodations,
         needsAccommodation,
-        nearbyDayIdeas
+        nearbyDayIdeas,
+        plannedDays: itinerary.length
       })
     };
   }
@@ -138,7 +139,7 @@ export class RecommendationService {
         for (const item of results) {
           const place = this.nominatimResultToPlace(item, coordinates, kind);
           if (!place) continue;
-          const key = `${place.name.toLowerCase()}-${place.coordinates.lat.toFixed(4)}-${place.coordinates.lng.toFixed(4)}`;
+          const key = this.normalizedPlaceKey(place.name);
           if (seen.has(key)) continue;
           seen.add(key);
           places.push(place);
@@ -179,7 +180,7 @@ export class RecommendationService {
           if (!this.isUsefulPlace(place, 'attraction')) continue;
           const distance = this.distanceMiles(place.coordinates, coordinates);
           if (distance < 5 || distance > 55) continue;
-          const key = place.name.toLowerCase();
+          const key = this.normalizedPlaceKey(place.name);
           if (seen.has(key)) continue;
           seen.add(key);
           places.push({
@@ -238,7 +239,20 @@ export class RecommendationService {
       return false;
     }
     if (kind === 'accommodation' && /hostel|student|housing|dorm|residence/i.test(place.name)) return false;
+    if ((kind === 'activity' || kind === 'attraction') && this.isWeakAttraction(place)) return false;
     return true;
+  }
+
+  private normalizedPlaceKey(name: string): string {
+    return name
+      .toLowerCase()
+      .replace(/children'?s/g, 'children')
+      .replace(/[^a-z0-9]/g, '');
+  }
+
+  private isWeakAttraction(place: OpenDataPlace): boolean {
+    const weakCategories = new Set(['road', 'tertiary', 'secondary', 'primary', 'residential', 'service', 'unclassified']);
+    return weakCategories.has(String(place.category).toLowerCase()) || /\broad\b/i.test(place.name);
   }
 
   private placeToRecommendation(place: OpenDataPlace, kind: RecommendationKind, request: RecommendationRequest): Recommendation {
@@ -303,12 +317,29 @@ export class RecommendationService {
 
   private describePlace(place: OpenDataPlace, kind: RecommendationKind): string {
     if (kind === 'restaurant') {
-      return `${place.name} appears in open map data near this destination. Price is estimated from category and budget context.`;
+      return `${place.name} is a food stop near ${this.shortArea(place)}. Use it as a candidate meal option and verify current hours before going.`;
     }
     if (kind === 'accommodation') {
-      return `${place.name} appears in open map data near this destination. Nightly price is estimated; verify availability and live rate before booking.`;
+      return `${place.name} is a lodging candidate near ${this.shortArea(place)}. The nightly price is estimated, so verify live rates and check-in rules before booking.`;
     }
-    return `${place.name} appears in open map data near this destination. Verify access, hours, and entry fees before going.`;
+    if (/temple|place_of_worship/i.test(`${place.name} ${place.category}`)) {
+      return `${place.name} is a local temple/place of worship near ${this.shortArea(place)}. Check visitor access, timings, and local customs before going.`;
+    }
+    if (/park|beach|grassland|garden/i.test(`${place.name} ${place.category}`)) {
+      return `${place.name} is an outdoor stop near ${this.shortArea(place)}. Good for a lighter day if access and weather look suitable.`;
+    }
+    if (/museum|historic|attraction/i.test(`${place.name} ${place.category}`)) {
+      return `${place.name} is a local point of interest near ${this.shortArea(place)}. Verify hours, entry rules, and transport before adding it to the day.`;
+    }
+    return `${place.name} is a local place near ${this.shortArea(place)}. Verify access, hours, and whether it is worth the detour before going.`;
+  }
+
+  private shortArea(place: OpenDataPlace): string {
+    const parts = String(place.address || place.displayName || '')
+      .split(',')
+      .map((part) => part.trim())
+      .filter(Boolean);
+    return parts.slice(1, 4).join(', ') || 'the destination';
   }
 
   private categoryForPlace(item: any, kind: RecommendationKind): string {
@@ -367,20 +398,18 @@ export class RecommendationService {
     const startDate = new Date(request.startDate);
     const unusedActivities = [...recommendations.activities];
     const unusedRestaurants = [...recommendations.restaurants];
+    const plannedDays = Math.min(duration, Math.max(1, Math.ceil(unusedActivities.length / 2)));
     const accommodation = duration > 1 && recommendations.accommodations.length > 0
       ? recommendations.accommodations[0]
       : undefined;
 
-    for (let i = 0; i < duration; i++) {
+    for (let i = 0; i < plannedDays; i++) {
       const currentDate = new Date(startDate);
       currentDate.setDate(startDate.getDate() + i);
       const activities = unusedActivities.splice(0, 2);
-      if (activities.length === 0) {
-        activities.push(this.openDayRecommendation(request.destination, i + 1, request));
-      }
       const meals = unusedRestaurants.length > 0
         ? [unusedRestaurants.shift() as Recommendation]
-        : [this.openMealRecommendation(request.destination, i + 1, request)];
+        : [];
       const transport = i === 0 ? recommendations.transport : [];
 
       itinerary.push({
@@ -425,7 +454,7 @@ export class RecommendationService {
   private generateTips(
     destination: string,
     duration: number,
-    context: { restaurants: Recommendation[]; activities: Recommendation[]; accommodations: Recommendation[]; needsAccommodation: boolean; nearbyDayIdeas: Recommendation[] }
+    context: { restaurants: Recommendation[]; activities: Recommendation[]; accommodations: Recommendation[]; needsAccommodation: boolean; nearbyDayIdeas: Recommendation[]; plannedDays: number }
   ): string[] {
     const tips = [
       `Every recommendation shown for ${destination} is either open-data based or clearly marked as needing verification.`,
@@ -439,9 +468,12 @@ export class RecommendationService {
       context.activities.some((item) => item.source === 'unavailable')
         ? 'Local experience data was sparse, so check recent blogs or tourism pages for current events.'
         : 'Prefer places with a visible map location and recent reviews before finalizing the day.',
+      context.plannedDays < duration
+        ? `Only ${context.plannedDays} unique planning day${context.plannedDays === 1 ? '' : 's'} could be built confidently from free data for this ${duration}-day request.`
+        : `Enough unique free-data matches were found to fill the requested ${duration} day${duration === 1 ? '' : 's'}.`,
       context.nearbyDayIdeas.length > 0
         ? 'For longer stays, TravelM8 adds nearby day ideas so the itinerary does not repeat the same local spots.'
-        : 'For longer stays with limited local data, use the open days to rest, handle errands, or verify nearby towns before traveling.'
+        : 'For longer stays with limited local data, TravelM8 avoids repeating or inventing places.'
     ];
 
     if (!context.needsAccommodation) {
@@ -449,38 +481,6 @@ export class RecommendationService {
     }
 
     return tips.slice(0, 6);
-  }
-
-  private openDayRecommendation(destination: string, dayNumber: number, request: RecommendationRequest): Recommendation {
-    return {
-      id: uuidv4(),
-      type: 'activity',
-      title: `Open exploration day ${dayNumber}`,
-      description: `No additional confident open-data attraction was found for this day near ${destination}. Use this day for rest, local errands, beach/market research, or a verified nearby day trip instead of repeating an already planned place.`,
-      location: destination,
-      price: { amount: 0, currency: request.currency || 'USD', perPerson: true },
-      duration: 180,
-      category: 'Open day',
-      tags: ['honest-fallback', 'no-repeat'],
-      source: 'unavailable',
-      verificationNote: 'TravelM8 avoided repeating the same attraction and did not invent a new place.'
-    };
-  }
-
-  private openMealRecommendation(destination: string, dayNumber: number, request: RecommendationRequest): Recommendation {
-    return {
-      id: uuidv4(),
-      type: 'restaurant',
-      title: `Meal backup search ${dayNumber}`,
-      description: `No additional confident restaurant was found for this day near ${destination}. Search close to your hotel/current location and verify hours before leaving.`,
-      location: destination,
-      price: { amount: Math.max(8, Math.round(this.dailyBudget(request, 0.12))), currency: request.currency || 'USD', perPerson: true },
-      duration: 60,
-      category: 'Meal backup',
-      tags: ['honest-fallback', 'no-repeat'],
-      source: 'unavailable',
-      verificationNote: 'TravelM8 avoided repeating the same restaurant and did not invent a new one.'
-    };
   }
 
   private distanceMiles(origin: Coordinates, destination: Coordinates): number {
