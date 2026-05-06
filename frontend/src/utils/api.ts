@@ -3,8 +3,18 @@ const API_BASE_URL =
   process.env.REACT_APP_API_URL ||
   (window.location.hostname === 'localhost' ? 'http://localhost:3001' : '');
 
-const isStaticDemo = (): boolean =>
-  process.env.REACT_APP_DEMO_MODE === 'true';
+export const DEMO_MODE_KEY = 'travelm8DemoMode';
+
+export const isDemoMode = (): boolean =>
+  process.env.REACT_APP_DEMO_MODE === 'true' || localStorage.getItem(DEMO_MODE_KEY) === 'true';
+
+export const enableDemoMode = (): void => {
+  localStorage.setItem(DEMO_MODE_KEY, 'true');
+};
+
+export const disableDemoMode = (): void => {
+  localStorage.removeItem(DEMO_MODE_KEY);
+};
 
 const demoTrips = [
   {
@@ -169,7 +179,7 @@ function demoFinalize(): ApiResponse {
 }
 
 function demoApiResponse<T>(endpoint: string, options: RequestInit): ApiResponse<T> | null {
-  if (!isStaticDemo()) return null;
+  if (!isDemoMode()) return null;
 
   if (endpoint.startsWith('/trips')) {
     if (options.method === 'GET') {

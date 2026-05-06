@@ -1,6 +1,16 @@
-import { post, setAuthToken, setUser, getUser, removeAuthToken, removeUser } from './api';
+import {
+  post,
+  setAuthToken,
+  setUser,
+  getUser,
+  removeAuthToken,
+  removeUser,
+  enableDemoMode,
+  disableDemoMode,
+  isDemoMode,
+} from './api';
 
-export { getUser };
+export { getUser, isDemoMode };
 
 export interface User {
   userId: string;
@@ -13,9 +23,6 @@ export interface AuthResponse {
   user: User;
   token: string;
 }
-
-const isStaticDemo = (): boolean =>
-  process.env.REACT_APP_DEMO_MODE === 'true';
 
 function demoAuth(email: string, name?: string): AuthResponse {
   const user = {
@@ -30,11 +37,16 @@ function demoAuth(email: string, name?: string): AuthResponse {
   return { user, token };
 }
 
+export function startDemoSession(): AuthResponse {
+  enableDemoMode();
+  return demoAuth('demo@travelm8.app', 'TravelM8 Demo');
+}
+
 /**
  * Register a new user
  */
 export async function register(email: string, password: string, name?: string): Promise<AuthResponse> {
-  if (isStaticDemo()) {
+  if (isDemoMode()) {
     return demoAuth(email, name);
   }
 
@@ -57,7 +69,7 @@ export async function register(email: string, password: string, name?: string): 
  * Login user
  */
 export async function login(email: string, password: string): Promise<AuthResponse> {
-  if (isStaticDemo()) {
+  if (isDemoMode()) {
     return demoAuth(email);
   }
 
@@ -81,6 +93,7 @@ export async function login(email: string, password: string): Promise<AuthRespon
 export function logout(): void {
   removeAuthToken();
   removeUser();
+  disableDemoMode();
 }
 
 /**

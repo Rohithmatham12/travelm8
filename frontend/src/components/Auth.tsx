@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { register, login } from '../utils/auth';
+import { register, login, startDemoSession } from '../utils/auth';
 import './Auth.css';
 
 const Auth: React.FC = () => {
@@ -31,20 +31,55 @@ const Auth: React.FC = () => {
     }
   };
 
+  const handleDemo = () => {
+    startDemoSession();
+    navigate('/dashboard');
+  };
+
   return (
-    <div className="auth-container">
+    <div className="auth-page">
+      <section className="auth-intro">
+        <span className="auth-kicker">Route-aware travel copilot</span>
+        <h1>Plan road trips that hold up in the real world.</h1>
+        <p>
+          TravelM8 builds route plans around budget, fatigue, food timing, overnight backups,
+          offline packets, and explainable stop scores using free open-map resources.
+        </p>
+        <div className="auth-proof-grid">
+          <div>
+            <strong>Free stack</strong>
+            <span>OSM, OSRM, Nominatim, Render</span>
+          </div>
+          <div>
+            <strong>Road-first</strong>
+            <span>Stops, meals, motels, safety</span>
+          </div>
+          <div>
+            <strong>Explainable</strong>
+            <span>Budget, detour, risk, confidence</span>
+          </div>
+        </div>
+      </section>
+
       <div className="auth-card">
-        <h1>TravelM8</h1>
-        <p className="auth-subtitle">Your AI-powered travel planning assistant</p>
+        <div className="auth-card-heading">
+          <span className="brand-mark">TM8</span>
+          <div>
+            <h2>TravelM8</h2>
+            <p className="auth-subtitle">Create an account or preview the product.</p>
+          </div>
+        </div>
 
         <div className="auth-tabs">
           <button
+            type="button"
             className={isLogin ? 'active' : ''}
             onClick={() => setIsLogin(true)}
           >
             Login
           </button>
           <button
+            type="button"
             className={!isLogin ? 'active' : ''}
             onClick={() => setIsLogin(false)}
           >
@@ -97,10 +132,19 @@ const Auth: React.FC = () => {
             {loading ? 'Please wait...' : isLogin ? 'Login' : 'Sign Up'}
           </button>
         </form>
+
+        <div className="demo-panel">
+          <div>
+            <strong>Need to show it fast?</strong>
+            <span>Open a guided sample with trips, route scoring, and calendar export.</span>
+          </div>
+          <button type="button" className="btn btn-demo" onClick={handleDemo}>
+            Try Demo
+          </button>
+        </div>
       </div>
     </div>
   );
 };
 
 export default Auth;
-
