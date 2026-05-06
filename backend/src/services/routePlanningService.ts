@@ -23,6 +23,7 @@ interface OpenMapPlace {
   type: 'poi' | 'restaurant' | 'motel';
   coordinates: Coordinates;
   distanceFromZone: number;
+  distanceFromStart: number;
   tags: Record<string, any>;
 }
 
@@ -33,6 +34,12 @@ interface RouteZone {
   index: number;
   distanceFromStart: number;
   coordinates: Coordinates;
+}
+
+interface RouteEstimate {
+  distanceMiles: number;
+  durationMinutes: number;
+  geometry: Coordinates[];
 }
 
 // Verified route data - LA to SF corridor
@@ -500,7 +507,7 @@ export class RoutePlanningService {
     return stops.map(stop => {
       let budgetFit: RouteStop['budgetFit'] = 'unknown';
       
-      if (stop.priceEstimate && budget) {
+      if (typeof stop.priceEstimate === 'number' && budget) {
         if (stop.type === 'motel' && budget.motelPerNight) {
           if (stop.priceEstimate <= budget.motelPerNight) {
             budgetFit = 'within-budget';
@@ -610,7 +617,8 @@ After you make your selections, I'll generate:
       coordinates: {
         origin: originCoords,
         destination: destinationCoords
-      }
+      },
+      geometry: routeEstimate.geometry
     };
     const stopOptionSets = await this.generateRouteAwareStopSets(request, routeData);
     const motels = stopOptionSets.flatMap((set) => set.motels);
@@ -683,15 +691,16 @@ After you make your selections, I'll generate:
     };
   }
 
-  private async fetchRouteEstimate(origin: Coordinates, destination: Coordinates): Promise<{ distanceMiles: number; durationMinutes: number }> {
-    const url = `https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${destination.lng},${destination.lat}?overview=false`;
+  private async fetchRouteEstimate(origin: Coordinates, destination: Coordinates): Promise<RouteEstimate> {
+    const url = `https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${destination.lng},${destination.lat}?overview=full&geometries=geojson`;
     try {
-      const data = await this.fetchJson<{ routes?: Array<{ distance: number; duration: number }> }>(url);
+      const data = await this.fetchJson<{ routes?: Array<{ distance: number; duration: number; geometry?: { coordinates?: [number, number][] } }> }>(url);
       const route = data.routes?.[0];
       if (route) {
         return {
           distanceMiles: Math.round(route.distance / 1609.344),
-          durationMinutes: Math.round(route.duration / 60)
+          durationMinutes: Math.round(route.duration / 60),
+          geometry: this.normalizeRouteGeometry(route.geometry?.coordinates, origin, destination)
         };
       }
     } catch (error) {
@@ -701,7 +710,8 @@ After you make your selections, I'll generate:
     const fallbackDistance = this.haversineMiles(origin, destination) * 1.25;
     return {
       distanceMiles: Math.round(fallbackDistance),
-      durationMinutes: Math.round(fallbackDistance * 1.2)
+      durationMinutes: Math.round(fallbackDistance * 1.2),
+      geometry: [origin, destination]
     };
   }
 
@@ -728,7 +738,8 @@ After you make your selections, I'll generate:
         ...zone,
         index,
         distanceFromStart: Math.round(distance * midpointRatio),
-        coordinates: this.interpolateCoordinates(
+        coordinates: this.coordinateAtRouteRatio(
+          routeData.geometry,
           routeData.coordinates.origin,
           routeData.coordinates.destination,
           midpointRatio
@@ -742,7 +753,7 @@ After you make your selections, I'll generate:
       const motelBudget = request.budget?.motelPerNight || 90;
       const places = openMapPlaces.get(index);
 
-      const poi = this.withStopScoring(this.buildRouteStopFromPlace(places?.poi, {
+      const fallbackPoi = this.withStopScoring(this.buildRouteStopFromPlace(undefined, {
         id: `route-poi-${index + 1}`,
         name: `${zone.label} rest stop zone`,
         category: longDrive ? 'fatigue-break' : 'route-break',
@@ -758,8 +769,17 @@ After you make your selections, I'll generate:
         source: 'free-route-estimate',
         riskFlags: longDrive ? ['fatigue-risk'] : []
       }), request);
+      const pois = places?.poi?.length
+        ? places.poi.slice(0, 3).map((place, placeIndex) =>
+            this.withStopScoring(this.buildRouteStopFromPlace(place, {
+              ...fallbackPoi,
+              id: `route-poi-${index + 1}-${placeIndex + 1}`,
+              distanceFromStart: place.distanceFromStart
+            }), request)
+          )
+        : [fallbackPoi];
 
-      const restaurant = this.withStopScoring(this.buildRouteStopFromPlace(places?.restaurant, {
+      const fallbackRestaurant = this.withStopScoring(this.buildRouteStopFromPlace(undefined, {
         id: `route-food-${index + 1}`,
         name: this.mealNameForTime(request.departureTime, index),
         category: 'meal-search-zone',
@@ -776,9 +796,18 @@ After you make your selections, I'll generate:
         distanceFromStart: zone.distanceFromStart,
         source: 'free-route-estimate'
       }, mealBudget), request);
+      const restaurants = places?.restaurant?.length
+        ? places.restaurant.slice(0, 3).map((place, placeIndex) =>
+            this.withStopScoring(this.buildRouteStopFromPlace(place, {
+              ...fallbackRestaurant,
+              id: `route-food-${index + 1}-${placeIndex + 1}`,
+              distanceFromStart: place.distanceFromStart
+            }, mealBudget), request)
+          )
+        : [fallbackRestaurant];
 
       const shouldShowMotelBackup = longDrive || lateDeparture || distance > 180;
-      const motel = shouldShowMotelBackup ? this.withStopScoring(this.buildRouteStopFromPlace(places?.motel, {
+      const fallbackMotel = shouldShowMotelBackup ? this.withStopScoring(this.buildRouteStopFromPlace(undefined, {
         id: `route-motel-${index + 1}`,
         name: lateDeparture || longDrive ? `${zone.label} overnight backup` : `${zone.label} motel backup`,
         category: 'overnight-search-zone',
@@ -798,6 +827,17 @@ After you make your selections, I'll generate:
         source: 'free-route-estimate',
         riskFlags: lateDeparture ? ['late-night-arrival-risk'] : []
       }, motelBudget), request) : null;
+      const motels = !shouldShowMotelBackup
+        ? []
+        : places?.motel?.length
+          ? places.motel.slice(0, 3).map((place, placeIndex) =>
+            this.withStopScoring(this.buildRouteStopFromPlace(place, {
+              ...fallbackMotel!,
+              id: `route-motel-${index + 1}-${placeIndex + 1}`,
+              distanceFromStart: place.distanceFromStart
+            }, motelBudget), request)
+          )
+          : (fallbackMotel ? [fallbackMotel] : []);
 
       return {
         setId: uuidv4(),
@@ -806,9 +846,9 @@ After you make your selections, I'll generate:
           from: Math.round(distance * zone.from),
           to: Math.round(distance * zone.to)
         },
-        pois: [poi],
-        restaurants: [restaurant],
-        motels: motel ? [motel] : []
+        pois,
+        restaurants,
+        motels
       };
     });
   }
@@ -826,7 +866,7 @@ After you make your selections, I'll generate:
       whyRecommended: [
         `${stop.distanceFromStart} miles from start`,
         `${stop.detourTime} minute estimated detour`,
-        stop.priceEstimate ? `Fits a target price around $${stop.priceEstimate}` : 'Useful timing for a safe break',
+        typeof stop.priceEstimate === 'number' ? `Estimated price around $${stop.priceEstimate}` : 'Useful timing for a safe break',
         stop.verificationStatus === 'verified' ? 'Verified stop record' : 'Open-data route estimate; verify exact place before departure'
       ]
     };
@@ -836,7 +876,7 @@ After you make your selections, I'll generate:
     if (!place) return fallback;
 
     const detourTime = Math.max(3, Math.min(25, Math.round(place.distanceFromZone * 4)));
-    const priceEstimate = targetPrice ?? fallback.priceEstimate;
+    const priceEstimate = this.estimateOpenMapPrice(place, fallback, targetPrice);
     const addressParts = [
       place.tags['addr:housenumber'],
       place.tags['addr:street'],
@@ -852,6 +892,7 @@ After you make your selections, I'll generate:
       address: addressParts.length > 0 ? addressParts.join(' ') : fallback.address,
       detourTime,
       priceEstimate,
+      priceRange: this.priceRangeForEstimate(priceEstimate, place.type),
       verificationStatus: 'partially-verified',
       source: 'open-data',
       openHours: place.tags.opening_hours || fallback.openHours,
@@ -867,61 +908,193 @@ After you make your selections, I'll generate:
 
   private describeOpenMapPlace(place: OpenMapPlace, fallback: RouteStop): string {
     if (place.type === 'restaurant') {
-      return `${place.name} appears in OpenStreetMap near this route segment. Use it as a real food candidate and verify hours before leaving.`;
+      return `${place.name} appears in OpenStreetMap near this route segment. Food price is an estimate from category and budget context; verify current menu and hours before leaving.`;
     }
     if (place.type === 'motel') {
-      return `${place.name} appears in OpenStreetMap near this route segment. Treat it as an overnight candidate and verify late check-in, parking, and price.`;
+      return `${place.name} appears in OpenStreetMap near this route segment. Nightly price is an estimate from lodging type and budget context; verify live price and late check-in before booking.`;
     }
-    return `${place.name} appears in OpenStreetMap near this route segment. It can work as a break or exploration stop; verify access before departure.`;
+    return `${place.name} appears in OpenStreetMap near this route segment. Most route-break stops are free, but verify access, parking, and hours before departure.`;
   }
 
-  private async fetchOpenMapPlacesByZone(zones: RouteZone[]): Promise<Map<number, { poi?: OpenMapPlace; restaurant?: OpenMapPlace; motel?: OpenMapPlace }>> {
-    const result = new Map<number, { poi?: OpenMapPlace; restaurant?: OpenMapPlace; motel?: OpenMapPlace }>();
-    zones.forEach((zone) => result.set(zone.index, {}));
+  private estimateOpenMapPrice(place: OpenMapPlace, fallback: RouteStop, targetPrice?: number): number | undefined {
+    const feeTag = String(place.tags.fee || '').toLowerCase();
+    if (feeTag === 'no') return 0;
+    if (place.tags.charge) {
+      const charge = Number(String(place.tags.charge).replace(/[^0-9.]/g, ''));
+      if (Number.isFinite(charge) && charge >= 0) return Math.round(charge);
+    }
 
-    try {
-      const aroundQueries = zones.map((zone) => {
-        const radius = 12000;
-        const { lat, lng } = zone.coordinates;
-        return `
-          node(around:${radius},${lat},${lng})["amenity"~"^(restaurant|cafe|fast_food)$"];
-          way(around:${radius},${lat},${lng})["amenity"~"^(restaurant|cafe|fast_food)$"];
-          node(around:${radius},${lat},${lng})["tourism"~"^(hotel|motel|guest_house|attraction|viewpoint)$"];
-          way(around:${radius},${lat},${lng})["tourism"~"^(hotel|motel|guest_house|attraction|viewpoint)$"];
-          node(around:${radius},${lat},${lng})["leisure"="park"];
-          way(around:${radius},${lat},${lng})["leisure"="park"];
-          node(around:${radius},${lat},${lng})["historic"];
-          way(around:${radius},${lat},${lng})["historic"];
-        `;
-      }).join('\n');
-      const query = `[out:json][timeout:12];(${aroundQueries});out center tags 90;`;
-      const url = new URL('https://overpass-api.de/api/interpreter');
-      url.searchParams.set('data', query);
-      const data = await this.fetchJson<{ elements?: any[] }>(url, {
-        headers: {
-          'User-Agent': 'TravelM8 route planner demo (https://github.com/Rohithmatham12/travelm8)'
-        }
-      });
+    if (place.type === 'restaurant') {
+      if (place.tags.amenity === 'fast_food') return 12;
+      if (place.tags.amenity === 'cafe') return 14;
+      return Math.min(Math.max(Math.round((targetPrice || fallback.priceEstimate || 18) * 0.95), 15), 28);
+    }
 
-      for (const element of data.elements || []) {
-        const place = this.elementToOpenMapPlace(element, zones);
+    if (place.type === 'motel') {
+      const baseline = place.tags.tourism === 'motel' ? 85 : place.tags.tourism === 'guest_house' ? 95 : 125;
+      return Math.min(Math.max(Math.round((targetPrice || fallback.priceEstimate || baseline) * 0.9), baseline), 180);
+    }
+
+    return feeTag === 'yes' ? 10 : 0;
+  }
+
+  private priceRangeForEstimate(priceEstimate: number | undefined, type: OpenMapPlace['type']): string | undefined {
+    if (typeof priceEstimate !== 'number') return undefined;
+    if (type === 'motel') {
+      if (priceEstimate <= 90) return '$';
+      if (priceEstimate <= 150) return '$$';
+      return '$$$';
+    }
+    if (priceEstimate <= 15) return '$';
+    if (priceEstimate <= 30) return '$$';
+    return '$$$';
+  }
+
+  private async fetchOpenMapPlacesByZone(zones: RouteZone[]): Promise<Map<number, { poi: OpenMapPlace[]; restaurant: OpenMapPlace[]; motel: OpenMapPlace[] }>> {
+    const result = new Map<number, { poi: OpenMapPlace[]; restaurant: OpenMapPlace[]; motel: OpenMapPlace[] }>();
+    zones.forEach((zone) => result.set(zone.index, { poi: [], restaurant: [], motel: [] }));
+
+    for (const zone of zones) {
+      try {
+        const data = await this.fetchOpenMapPlacesForZone(zone);
+        const bucket = result.get(zone.index) || { poi: [], restaurant: [], motel: [] };
+
+        for (const element of data.elements || []) {
+          const place = this.elementToOpenMapPlace(element, [zone]);
         if (!place) continue;
 
-        const zone = this.nearestZone(place.coordinates, zones);
-        if (!zone || place.distanceFromZone > 10) continue;
+          if (place.distanceFromZone > 12) continue;
 
-        const bucket = result.get(zone.index) || {};
-        const existing = bucket[place.type];
-        if (!existing || place.distanceFromZone < existing.distanceFromZone) {
-          bucket[place.type] = place;
-          result.set(zone.index, bucket);
+          const alreadyIncluded = bucket[place.type].some((existing) =>
+            existing.name.toLowerCase() === place.name.toLowerCase()
+          );
+          if (!alreadyIncluded) bucket[place.type].push(place);
         }
+
+        bucket.poi.sort((a, b) => a.distanceFromZone - b.distanceFromZone);
+        bucket.restaurant.sort((a, b) => a.distanceFromZone - b.distanceFromZone);
+        bucket.motel.sort((a, b) => a.distanceFromZone - b.distanceFromZone);
+        result.set(zone.index, bucket);
+      } catch (error: any) {
+        console.warn(`OpenStreetMap place lookup failed for ${zone.label}; using fallback: ${error.message || error}`);
       }
-    } catch (error) {
-      console.warn('OpenStreetMap place lookup failed; using route zone fallbacks');
+
+      const bucket = result.get(zone.index) || { poi: [], restaurant: [], motel: [] };
+      if (bucket.poi.length === 0 || bucket.restaurant.length === 0 || bucket.motel.length === 0) {
+        const nominatimPlaces = await this.fetchNominatimPlacesForZone(zone, bucket);
+        for (const place of nominatimPlaces) {
+          const alreadyIncluded = bucket[place.type].some((existing) =>
+            existing.name.toLowerCase() === place.name.toLowerCase()
+          );
+          if (!alreadyIncluded) bucket[place.type].push(place);
+        }
+        bucket.poi.sort((a, b) => a.distanceFromZone - b.distanceFromZone);
+        bucket.restaurant.sort((a, b) => a.distanceFromZone - b.distanceFromZone);
+        bucket.motel.sort((a, b) => a.distanceFromZone - b.distanceFromZone);
+        result.set(zone.index, bucket);
+      }
     }
 
     return result;
+  }
+
+  private async fetchOpenMapPlacesForZone(zone: RouteZone): Promise<{ elements?: any[] }> {
+    const radius = 12000;
+    const { lat, lng } = zone.coordinates;
+    const query = `[out:json][timeout:8];(
+      node(around:${radius},${lat},${lng})["amenity"~"^(restaurant|cafe|fast_food|food_court)$"]["name"];
+      way(around:${radius},${lat},${lng})["amenity"~"^(restaurant|cafe|fast_food|food_court)$"]["name"];
+      node(around:${radius},${lat},${lng})["tourism"~"^(hotel|motel|guest_house)$"]["name"];
+      way(around:${radius},${lat},${lng})["tourism"~"^(hotel|motel|guest_house)$"]["name"];
+      node(around:${radius},${lat},${lng})["tourism"~"^(attraction|viewpoint)$"]["name"];
+      way(around:${radius},${lat},${lng})["tourism"~"^(attraction|viewpoint)$"]["name"];
+      node(around:${radius},${lat},${lng})["leisure"="park"]["name"];
+      way(around:${radius},${lat},${lng})["leisure"="park"]["name"];
+      node(around:${radius},${lat},${lng})["highway"="rest_area"];
+      way(around:${radius},${lat},${lng})["highway"="rest_area"];
+    );out center 80;`;
+    const url = new URL('https://overpass-api.de/api/interpreter');
+    url.searchParams.set('data', query);
+    return this.fetchJson<{ elements?: any[] }>(url, {
+      headers: {
+        'User-Agent': 'TravelM8 route planner demo (https://github.com/Rohithmatham12/travelm8)'
+      }
+    });
+  }
+
+  private async fetchNominatimPlacesForZone(
+    zone: RouteZone,
+    existing: { poi: OpenMapPlace[]; restaurant: OpenMapPlace[]; motel: OpenMapPlace[] }
+  ): Promise<OpenMapPlace[]> {
+    const searches: Array<{ type: OpenMapPlace['type']; query: string }> = [];
+    if (existing.restaurant.length === 0) searches.push({ type: 'restaurant', query: 'restaurant' });
+    if (existing.motel.length === 0) searches.push({ type: 'motel', query: 'hotel' });
+    if (existing.poi.length === 0) searches.push({ type: 'poi', query: 'park' });
+
+    const places: OpenMapPlace[] = [];
+    for (const search of searches) {
+      try {
+        const url = new URL('https://nominatim.openstreetmap.org/search');
+        const latDelta = 0.18;
+        const lngDelta = 0.18;
+        url.searchParams.set('format', 'json');
+        url.searchParams.set('limit', '4');
+        url.searchParams.set('q', search.query);
+        url.searchParams.set('bounded', '1');
+        url.searchParams.set(
+          'viewbox',
+          `${zone.coordinates.lng - lngDelta},${zone.coordinates.lat + latDelta},${zone.coordinates.lng + lngDelta},${zone.coordinates.lat - latDelta}`
+        );
+        url.searchParams.set('addressdetails', '1');
+        url.searchParams.set('extratags', '1');
+        const data = await this.fetchJson<any[]>(url, {
+          headers: {
+            'User-Agent': 'TravelM8 route planner demo (https://github.com/Rohithmatham12/travelm8)'
+          }
+        });
+
+        for (const item of data) {
+          const coordinates = { lat: Number(item.lat), lng: Number(item.lon) };
+          if (!Number.isFinite(coordinates.lat) || !Number.isFinite(coordinates.lng)) continue;
+
+          const name = item.name || String(item.display_name || '').split(',')[0];
+          if (!this.isUsefulOpenMapName(name)) continue;
+          if (search.type === 'poi' && this.isWeakPoiCandidate(name, item)) continue;
+          if (search.type === 'motel' && this.isWeakLodgingCandidate(name)) continue;
+
+          places.push({
+            name,
+            category: item.type || item.class || search.type,
+            type: search.type,
+            coordinates,
+            distanceFromZone: this.haversineMiles(coordinates, zone.coordinates),
+            distanceFromStart: zone.distanceFromStart,
+            tags: {
+              ...(item.extratags || {}),
+              ...(search.type === 'restaurant' && { amenity: item.type || 'restaurant' }),
+              ...(search.type === 'motel' && { tourism: item.type || 'hotel' })
+            }
+          });
+        }
+      } catch (error: any) {
+        console.warn(`Nominatim ${search.type} lookup failed for ${zone.label}: ${error.message || error}`);
+      }
+    }
+
+    return places;
+  }
+
+  private isUsefulOpenMapName(name: string): boolean {
+    return /[a-z]/i.test(name) && name.trim().length >= 3;
+  }
+
+  private isWeakLodgingCandidate(name: string): boolean {
+    return /hostel|student|housing|dorm|residence hall/i.test(name);
+  }
+
+  private isWeakPoiCandidate(name: string, item: any): boolean {
+    const access = String(item.extratags?.access || item.tags?.access || '').toLowerCase();
+    return access === 'private' || /\b(private|street lamp|lamp|utility|substation|parking lot)\b/i.test(name);
   }
 
   private elementToOpenMapPlace(element: any, zones: RouteZone[]): OpenMapPlace | null {
@@ -932,12 +1105,14 @@ After you make your selections, I'll generate:
       lng: Number(element.lon ?? element.center?.lon)
     };
 
-    if (!name || !Number.isFinite(coordinates.lat) || !Number.isFinite(coordinates.lng)) {
+    if (!name || !this.isUsefulOpenMapName(name) || !Number.isFinite(coordinates.lat) || !Number.isFinite(coordinates.lng)) {
       return null;
     }
 
     const type = this.openMapStopType(tags);
     if (!type) return null;
+    if (type === 'motel' && this.isWeakLodgingCandidate(name)) return null;
+    if (type === 'poi' && this.isWeakPoiCandidate(name, { tags })) return null;
 
     const nearest = this.nearestZone(coordinates, zones);
     if (!nearest) return null;
@@ -948,20 +1123,23 @@ After you make your selections, I'll generate:
       type,
       coordinates,
       distanceFromZone: this.haversineMiles(coordinates, nearest.coordinates),
+      distanceFromStart: nearest.distanceFromStart,
       tags
     };
   }
 
   private openMapStopType(tags: Record<string, any>): OpenMapPlace['type'] | null {
-    if (['restaurant', 'cafe', 'fast_food'].includes(tags.amenity)) return 'restaurant';
+    if (['restaurant', 'cafe', 'fast_food', 'food_court'].includes(tags.amenity)) return 'restaurant';
     if (['hotel', 'motel', 'guest_house'].includes(tags.tourism)) return 'motel';
-    if (tags.tourism || tags.leisure === 'park' || tags.historic) return 'poi';
+    if (tags.highway === 'rest_area' || tags.amenity === 'parking' || tags.tourism || tags.leisure === 'park' || tags.historic) return 'poi';
     return null;
   }
 
   private openMapCategory(tags: Record<string, any>, type: OpenMapPlace['type']): string {
     if (type === 'restaurant') return tags.cuisine || tags.amenity || 'food';
     if (type === 'motel') return tags.tourism || 'lodging';
+    if (tags.highway === 'rest_area') return 'rest area';
+    if (tags.amenity === 'parking') return 'parking/rest stop';
     return tags.tourism || tags.leisure || tags.historic || 'route stop';
   }
 
@@ -985,6 +1163,22 @@ After you make your selections, I'll generate:
     if (hour < 10 && index === 0) return 'Breakfast search zone';
     if (hour < 15 && index <= 1) return index === 0 ? 'Lunch search zone' : 'Coffee/snack search zone';
     return index === 0 ? 'Dinner search zone' : 'Late meal backup zone';
+  }
+
+  private normalizeRouteGeometry(coordinates: [number, number][] | undefined, origin: Coordinates, destination: Coordinates): Coordinates[] {
+    if (!coordinates || coordinates.length < 2) return [origin, destination];
+    return coordinates
+      .map(([lng, lat]) => ({ lat: Number(lat), lng: Number(lng) }))
+      .filter((coordinate) => Number.isFinite(coordinate.lat) && Number.isFinite(coordinate.lng));
+  }
+
+  private coordinateAtRouteRatio(geometry: Coordinates[] | undefined, origin: Coordinates, destination: Coordinates, ratio: number): Coordinates {
+    if (!geometry || geometry.length < 2) {
+      return this.interpolateCoordinates(origin, destination, ratio);
+    }
+
+    const index = Math.max(0, Math.min(geometry.length - 1, Math.round((geometry.length - 1) * ratio)));
+    return geometry[index];
   }
 
   private interpolateCoordinates(origin: Coordinates, destination: Coordinates, ratio: number): Coordinates {
@@ -1056,11 +1250,13 @@ After you make your selections, I'll generate:
     const allStops = routeData
       ? [...VERIFIED_POIS_LA_SF, ...VERIFIED_RESTAURANTS_LA_SF, ...VERIFIED_MOTELS_LA_SF]
       : routePlan!.stopOptionSets.flatMap((set) => [...set.pois, ...set.restaurants, ...set.motels]);
-    const selectedStops = allStops.filter(stop => 
+    const selectedStops = (selections.selectedStopSnapshots && selections.selectedStopSnapshots.length > 0
+      ? selections.selectedStopSnapshots
+      : allStops.filter(stop =>
       selections.selectedPois.includes(stop.id) ||
       selections.selectedRestaurants.includes(stop.id) ||
       selections.selectedMotel === stop.id
-    ).sort((a, b) => a.distanceFromStart - b.distanceFromStart);
+    )).sort((a, b) => a.distanceFromStart - b.distanceFromStart);
     
     const routeSummary = routeData ? this.buildRouteSummary(request, routeData) : routePlan!.routeSummary;
     const calendarEvents = this.generateCalendarEvents(request, selectedStops, selections.departureTime, routeSummary.totalDistance);

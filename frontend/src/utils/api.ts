@@ -155,14 +155,54 @@ function demoRoutePlan(): ApiResponse {
   };
 }
 
-function demoFinalize(): ApiResponse {
+function demoFinalize(options: RequestInit): ApiResponse {
+  let selections: any = {};
+  try {
+    selections = options.body ? JSON.parse(String(options.body)).selections || {} : {};
+  } catch {
+    selections = {};
+  }
+  const plannedStops = (demoRoutePlan().data as any).stopOptionSets.flatMap((set: any) => [
+    ...set.pois,
+    ...set.restaurants,
+    ...set.motels,
+  ]);
+  const stops = selections.selectedStopSnapshots?.length
+    ? selections.selectedStopSnapshots
+    : plannedStops.filter((stop: any) =>
+        selections.selectedPois?.includes(stop.id) ||
+        selections.selectedRestaurants?.includes(stop.id) ||
+        selections.selectedMotel === stop.id
+      );
+  const mealCost = stops
+    .filter((stop: any) => stop.type === 'restaurant')
+    .reduce((sum: number, stop: any) => sum + (stop.priceEstimate || 0) * 2, 0);
+  const motelCost = stops
+    .filter((stop: any) => stop.type === 'motel')
+    .reduce((sum: number, stop: any) => sum + (stop.priceEstimate || 0), 0);
+  const activityCost = stops
+    .filter((stop: any) => stop.type === 'poi')
+    .reduce((sum: number, stop: any) => sum + (stop.priceEstimate || 0) * 2, 0);
+  const gasCost = 51;
+
   return {
     success: true,
     data: {
       itineraryId: 'demo-itinerary',
       routeId: 'route-1',
-      totalCost: 142,
-      totalDuration: 455,
+      routeSummary: (demoRoutePlan().data as any).routeSummary,
+      stops,
+      offlineMapPlan: (demoRoutePlan().data as any).offlineMapPlan,
+      totalEstimatedCost: {
+        amount: mealCost + motelCost + activityCost + gasCost,
+        currency: 'USD',
+        breakdown: {
+          motels: motelCost,
+          meals: mealCost,
+          activities: activityCost,
+          gas: gasCost,
+        },
+      },
       calendarEvents: [
         {
           id: 'event-1',
@@ -171,9 +211,18 @@ function demoFinalize(): ApiResponse {
           startTime: '2026-06-12T08:00:00.000Z',
           endTime: '2026-06-12T08:15:00.000Z',
           location: 'Los Angeles',
+          type: 'drive',
         },
+        ...stops.map((stop: any, index: number) => ({
+          id: `event-demo-${index + 2}`,
+          title: stop.name,
+          description: stop.description,
+          startTime: `2026-06-12T${String(10 + index).padStart(2, '0')}:00:00.000Z`,
+          endTime: `2026-06-12T${String(10 + index).padStart(2, '0')}:45:00.000Z`,
+          location: stop.address || stop.name,
+          type: stop.type === 'restaurant' ? 'meal' : stop.type === 'motel' ? 'overnight' : 'stop',
+        })),
       ],
-      stops: [],
     },
   };
 }
@@ -194,7 +243,7 @@ function demoApiResponse<T>(endpoint: string, options: RequestInit): ApiResponse
   }
 
   if (endpoint === '/route/plan') return demoRoutePlan() as ApiResponse<T>;
-  if (endpoint === '/route/finalize') return demoFinalize() as ApiResponse<T>;
+  if (endpoint === '/route/finalize') return demoFinalize(options) as ApiResponse<T>;
   if (endpoint === '/recommendations') {
     return {
       success: true,

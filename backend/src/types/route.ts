@@ -122,6 +122,7 @@ export interface SelectedStops {
   selectedRestaurants: string[];
   selectedMotel: string;
   departureTime: string;
+  selectedStopSnapshots?: RouteStop[];
 }
 
 export interface FinalItinerary {
