@@ -32,7 +32,7 @@ export class TripService {
       ttl: Math.floor(Date.now() / 1000) + (365 * 24 * 60 * 60),
     };
 
-    putItem(TRIPS_TABLE_NAME, trip);
+    await putItem(TRIPS_TABLE_NAME, trip);
     return trip;
   }
 
@@ -88,7 +88,7 @@ export class TripService {
     limit: number = 20, 
     nextToken?: string
   ): Promise<TripListResponse> {
-    const allTrips = queryItems(
+    const allTrips = await queryItems(
       TRIPS_TABLE_NAME,
       (item: Trip) => item.userId === userId
     ) as Trip[];

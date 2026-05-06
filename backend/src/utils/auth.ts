@@ -67,7 +67,7 @@ export async function comparePassword(password: string, hash: string): Promise<b
 /**
  * Authentication middleware
  */
-export function authenticateToken(req: AuthRequest, res: Response, next: NextFunction): void {
+export async function authenticateToken(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
@@ -89,7 +89,7 @@ export function authenticateToken(req: AuthRequest, res: Response, next: NextFun
   }
 
   // Get user from storage
-  const user = getItem('users', { userId: decoded.userId }) as User | null;
+  const user = await getItem('users', { userId: decoded.userId }) as User | null;
   if (!user) {
     res.status(401).json({
       success: false,
@@ -123,7 +123,7 @@ export function requireRole(roles: User['role'][]) {
  */
 export async function registerUser(email: string, password: string, name?: string): Promise<{ user: User; token: string }> {
   // Check if user already exists
-  const existingUser = getItem('users', { email }) as User | null;
+  const existingUser = await getItem('users', { email }) as User | null;
   if (existingUser) {
     throw new Error('User with this email already exists');
   }
@@ -142,7 +142,7 @@ export async function registerUser(email: string, password: string, name?: strin
     updatedAt: now
   };
 
-  putItem('users', user);
+  await putItem('users', user);
 
   const token = generateToken(userId, email);
 
@@ -153,7 +153,7 @@ export async function registerUser(email: string, password: string, name?: strin
  * Login user
  */
 export async function loginUser(email: string, password: string): Promise<{ user: User; token: string }> {
-  const user = getItem('users', { email }) as User | null;
+  const user = await getItem('users', { email }) as User | null;
   if (!user) {
     throw new Error('Invalid email or password');
   }

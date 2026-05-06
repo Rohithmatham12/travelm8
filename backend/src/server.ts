@@ -8,14 +8,13 @@ import { externalRouter } from './routes/external';
 import { authRouter } from './routes/auth';
 import { healthRouter } from './routes/health';
 import { routePlanningRouter } from './routes/routePlanning';
-import { getDataDir } from './utils/storage';
+import { getDataDir, initializeStorage, isPostgresStorageEnabled } from './utils/storage';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Ensure data directory exists
 const dataDir = getDataDir();
-if (!fs.existsSync(dataDir)) {
+if (!isPostgresStorageEnabled() && !fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
 
@@ -56,10 +55,16 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
   });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 TravelM8 Backend Server running on port ${PORT}`);
-  console.log(`📁 Data directory: ${dataDir}`);
-});
+initializeStorage()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`🚀 TravelM8 Backend Server running on port ${PORT}`);
+      console.log(`📁 Storage: ${dataDir}`);
+    });
+  })
+  .catch((error) => {
+    console.error('Failed to initialize storage:', error);
+    process.exit(1);
+  });
 
 export default app;
