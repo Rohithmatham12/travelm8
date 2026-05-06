@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 
-const dataDir = path.join(__dirname, '../../data');
+const dataDir = process.env.DATA_DIR || path.join(__dirname, '../../data');
 
 // Ensure data directory exists
 if (!fs.existsSync(dataDir)) {
@@ -18,6 +18,10 @@ interface StorageItem {
  */
 function getTablePath(tableName: string): string {
   return path.join(dataDir, `${tableName}.json`);
+}
+
+export function getDataDir(): string {
+  return dataDir;
 }
 
 /**
@@ -179,4 +183,3 @@ export function initializeStorage(): void {
 
 // Initialize on module load
 initializeStorage();
-
