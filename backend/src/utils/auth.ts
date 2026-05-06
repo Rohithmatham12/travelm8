@@ -12,6 +12,7 @@ export interface User {
   email: string;
   password: string; // hashed
   name?: string;
+  role: 'traveler' | 'admin';
   createdAt: string;
   updatedAt: string;
 }
@@ -98,6 +99,21 @@ export function authenticateToken(req: AuthRequest, res: Response, next: NextFun
   next();
 }
 
+export function requireRole(roles: User['role'][]) {
+  return (req: AuthRequest, res: Response, next: NextFunction): void => {
+    const role = req.user?.role || 'traveler';
+    if (!roles.includes(role)) {
+      res.status(403).json({
+        success: false,
+        error: 'You do not have permission to access this resource'
+      });
+      return;
+    }
+
+    next();
+  };
+}
+
 /**
  * Register a new user
  */
@@ -117,6 +133,7 @@ export async function registerUser(email: string, password: string, name?: strin
     email,
     password: hashedPassword,
     name,
+    role: 'traveler',
     createdAt: now,
     updatedAt: now
   };

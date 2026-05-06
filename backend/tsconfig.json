@@ -3,6 +3,7 @@
     "target": "ES2022",
     "module": "commonjs",
     "lib": ["ES2022"],
+    "types": ["node"],
     "outDir": "./dist",
     "rootDir": "./src",
     "strict": false,
@@ -34,6 +35,7 @@
     "src/recommendations",
     "src/trips",
     "src/setupTests.ts",
+    "src/hello.ts",
     "src/utils/dynamodb.ts",
     "**/*.test.ts",
     "**/*.spec.ts"

@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
+import https from 'https';
 import {
   RouteRequest,
   RouteResponse,
@@ -10,6 +11,11 @@ import {
   FinalItinerary,
   CalendarEvent
 } from '../types/route';
+
+interface Coordinates {
+  lat: number;
+  lng: number;
+}
 
 // Verified route data - LA to SF corridor
 const VERIFIED_ROUTES: { [key: string]: any } = {
@@ -359,7 +365,6 @@ export class RoutePlanningService {
     const routeData = VERIFIED_ROUTES[routeKey];
     
     if (!routeData) {
-      // Generate generic route if not in verified database
       return this.generateGenericRoute(request);
     }
     
@@ -569,10 +574,30 @@ After you make your selections, I'll generate:
 - Offline map download instructions`;
   }
   
-  private generateGenericRoute(request: RouteRequest): RouteResponse {
-    // For routes not in our verified database
-    const estimatedDistance = 300; // Default estimate
-    const estimatedTime = 300; // 5 hours
+  private async generateGenericRoute(request: RouteRequest): Promise<RouteResponse> {
+    const originCoords = await this.geocodeLocation(request.origin);
+    const destinationCoords = await this.geocodeLocation(request.destination);
+    const routeEstimate = await this.fetchRouteEstimate(originCoords, destinationCoords);
+    const estimatedDistance = routeEstimate.distanceMiles;
+    const estimatedTime = routeEstimate.durationMinutes;
+    const suggestedStops = this.calculateSuggestedStops(
+      estimatedTime,
+      request.preferences?.stopFrequency || 'moderate'
+    );
+    const routeData = {
+      distance: estimatedDistance,
+      driveTime: estimatedTime,
+      majorCities: [request.origin, request.destination],
+      coordinates: {
+        origin: originCoords,
+        destination: destinationCoords
+      }
+    };
+    const stopOptionSets = this.generateRouteAwareStopSets(request, routeData);
+    const motels = stopOptionSets.flatMap((set) => set.motels);
+    const budgetFriendlyMotels = [...motels]
+      .filter((motel) => motel.budgetFit === 'within-budget' || motel.budgetFit === 'slightly-above')
+      .slice(0, 3);
     
     const budget = request.budget ? {
       ...(request.budget.motelPerNight !== undefined && { motelPerNight: request.budget.motelPerNight }),
@@ -592,24 +617,241 @@ After you make your selections, I'll generate:
         destination: request.destination,
         totalDistance: estimatedDistance,
         estimatedDriveTime: estimatedTime,
-        suggestedStops: 3,
+        suggestedStops,
         majorCities: [request.origin, request.destination]
       },
-      stopOptionSets: [],
-      topRatedMotels: [],
-      budgetFriendlyMotels: [],
+      stopOptionSets,
+      topRatedMotels: motels.slice(0, 3),
+      budgetFriendlyMotels,
       offlineMapPlan: {
         corridorWidth: 25,
-        regions: [],
+        regions: [
+          { name: `${request.origin} start area`, coordinates: originCoords, radius: 25 },
+          { name: `${request.destination} arrival area`, coordinates: destinationCoords, radius: 25 }
+        ],
         instructions: [
-          'This route is not in our verified database.',
-          'Please use online lookup for real-time data.',
-          'Download the general area maps for offline use.'
-        ]
+          `Download a ${Math.round(estimatedDistance)} mile route corridor before departure.`,
+          'Save each suggested stop zone, address, and phone number before low-signal stretches.',
+          'Keep one backup food stop and one backup overnight stop near the midpoint.',
+          'Re-check live opening hours and prices before booking.'
+        ],
+        estimatedDownloadSize: `~${Math.max(120, Math.round(estimatedDistance * 1.1))} MB`
       },
       calendarExportReady: false,
-      userChoicePrompt: `I don't have verified data for the ${request.origin} to ${request.destination} route. Please allow online lookup or try a popular route like Los Angeles to San Francisco.`
+      userChoicePrompt: `I estimated this route with free open-data services. Select stop zones to build a timed itinerary, then verify exact businesses before departure.`
     };
+  }
+
+  private async geocodeLocation(location: string): Promise<Coordinates> {
+    const url = new URL('https://nominatim.openstreetmap.org/search');
+    url.searchParams.set('format', 'json');
+    url.searchParams.set('limit', '1');
+    url.searchParams.set('q', location);
+
+    const data = await this.fetchJson<Array<{ lat: string; lon: string }>>(url, {
+      headers: {
+        'User-Agent': 'TravelM8 route planner demo (https://github.com/Rohithmatham12/travelm8)'
+      }
+    });
+    const first = data[0];
+    if (!first) {
+      throw new Error(`No coordinates found for ${location}`);
+    }
+
+    return {
+      lat: Number(first.lat),
+      lng: Number(first.lon)
+    };
+  }
+
+  private async fetchRouteEstimate(origin: Coordinates, destination: Coordinates): Promise<{ distanceMiles: number; durationMinutes: number }> {
+    const url = `https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${destination.lng},${destination.lat}?overview=false`;
+    try {
+      const data = await this.fetchJson<{ routes?: Array<{ distance: number; duration: number }> }>(url);
+      const route = data.routes?.[0];
+      if (route) {
+        return {
+          distanceMiles: Math.round(route.distance / 1609.344),
+          durationMinutes: Math.round(route.duration / 60)
+        };
+      }
+    } catch (error) {
+      console.warn('OSRM route estimate failed; using distance fallback');
+    }
+
+    const fallbackDistance = this.haversineMiles(origin, destination) * 1.25;
+    return {
+      distanceMiles: Math.round(fallbackDistance),
+      durationMinutes: Math.round(fallbackDistance * 1.2)
+    };
+  }
+
+  private generateRouteAwareStopSets(request: RouteRequest, routeData: any): StopOptionSet[] {
+    const distance = Math.max(routeData.distance, 1);
+    const driveHours = routeData.driveTime / 60;
+    const longDrive = driveHours >= 4;
+    const lateDeparture = Number((request.departureTime || '08:00').split(':')[0]) >= 18;
+    const zones = [
+      { label: 'Early reset zone', from: 0.2, to: 0.35 },
+      { label: 'Meal and fatigue checkpoint', from: 0.45, to: 0.6 },
+      { label: 'Final stretch backup zone', from: 0.7, to: 0.85 }
+    ];
+
+    return zones.map((zone, index) => {
+      const midpointRatio = (zone.from + zone.to) / 2;
+      const distanceFromStart = Math.round(distance * midpointRatio);
+      const coordinates = this.interpolateCoordinates(
+        routeData.coordinates.origin,
+        routeData.coordinates.destination,
+        midpointRatio
+      );
+      const mealBudget = request.budget?.mealBudget || 18;
+      const motelBudget = request.budget?.motelPerNight || 90;
+
+      const poi = this.withStopScoring({
+        id: `route-poi-${index + 1}`,
+        name: `${zone.label} rest stop zone`,
+        category: longDrive ? 'fatigue-break' : 'route-break',
+        type: 'poi',
+        description: longDrive
+          ? 'Suggested stretch/rest zone based on drive duration. Choose a real rest area, park, cafe, or viewpoint nearby before departure.'
+          : 'Suggested short break zone to keep the route comfortable without adding a large detour.',
+        coordinates,
+        detourTime: 10,
+        estimatedTimeAtStop: longDrive ? 25 : 15,
+        verificationStatus: 'partially-verified',
+        distanceFromStart,
+        source: 'free-route-estimate',
+        riskFlags: longDrive ? ['fatigue-risk'] : []
+      }, request);
+
+      const restaurant = this.withStopScoring({
+        id: `route-food-${index + 1}`,
+        name: this.mealNameForTime(request.departureTime, index),
+        category: 'meal-search-zone',
+        type: 'restaurant',
+        description: `Find food around this route segment. Target meals under $${mealBudget}/person and verify opening hours before leaving.`,
+        coordinates,
+        detourTime: 12,
+        estimatedTimeAtStop: 40,
+        priceRange: mealBudget <= 15 ? '$' : '$$',
+        priceEstimate: mealBudget,
+        currency: 'USD',
+        verificationStatus: 'partially-verified',
+        openHours: 'Verify live hours',
+        distanceFromStart,
+        source: 'free-route-estimate'
+      }, request);
+
+      const motel = this.withStopScoring({
+        id: `route-motel-${index + 1}`,
+        name: lateDeparture || longDrive ? `${zone.label} overnight backup` : `${zone.label} motel backup`,
+        category: 'overnight-search-zone',
+        type: 'motel',
+        description: lateDeparture
+          ? 'Late-departure backup zone. Prefer booking before the drive if arrival may be after 10 PM.'
+          : 'Backup overnight zone if fatigue, weather, or traffic makes the full drive uncomfortable.',
+        coordinates,
+        detourTime: 15,
+        estimatedTimeAtStop: 480,
+        priceRange: motelBudget <= 90 ? '$' : '$$',
+        priceEstimate: motelBudget,
+        currency: 'USD',
+        verificationStatus: 'partially-verified',
+        amenities: ['Verify parking', 'Verify late check-in', 'Save phone number'],
+        distanceFromStart,
+        source: 'free-route-estimate',
+        riskFlags: lateDeparture ? ['late-night-arrival-risk'] : []
+      }, request);
+
+      return {
+        setId: uuidv4(),
+        label: zone.label,
+        distanceRange: {
+          from: Math.round(distance * zone.from),
+          to: Math.round(distance * zone.to)
+        },
+        pois: [poi],
+        restaurants: [restaurant],
+        motels: [motel]
+      };
+    });
+  }
+
+  private withStopScoring(stop: RouteStop, request: RouteRequest): RouteStop {
+    const budgetedStop = this.applyBudgetFilter([stop], request.budget)[0] || stop;
+    const priceScore = budgetedStop.budgetFit === 'above-budget' ? 10 : 25;
+    const detourScore = Math.max(0, 25 - stop.detourTime);
+    const verificationScore = stop.verificationStatus === 'verified' ? 30 : 15;
+    const timingScore = stop.riskFlags?.length ? 10 : 20;
+
+    return {
+      ...budgetedStop,
+      confidenceScore: Math.min(100, priceScore + detourScore + verificationScore + timingScore),
+      whyRecommended: [
+        `${stop.distanceFromStart} miles from start`,
+        `${stop.detourTime} minute estimated detour`,
+        stop.priceEstimate ? `Fits a target price around $${stop.priceEstimate}` : 'Useful timing for a safe break',
+        stop.verificationStatus === 'verified' ? 'Verified stop record' : 'Open-data route estimate; verify exact place before departure'
+      ]
+    };
+  }
+
+  private mealNameForTime(departureTime = '08:00', index: number): string {
+    const hour = Number(departureTime.split(':')[0]);
+    if (hour < 10 && index === 0) return 'Breakfast search zone';
+    if (hour < 15 && index <= 1) return index === 0 ? 'Lunch search zone' : 'Coffee/snack search zone';
+    return index === 0 ? 'Dinner search zone' : 'Late meal backup zone';
+  }
+
+  private interpolateCoordinates(origin: Coordinates, destination: Coordinates, ratio: number): Coordinates {
+    return {
+      lat: Number((origin.lat + (destination.lat - origin.lat) * ratio).toFixed(5)),
+      lng: Number((origin.lng + (destination.lng - origin.lng) * ratio).toFixed(5))
+    };
+  }
+
+  private haversineMiles(origin: Coordinates, destination: Coordinates): number {
+    const toRadians = (value: number) => value * Math.PI / 180;
+    const radiusMiles = 3958.8;
+    const dLat = toRadians(destination.lat - origin.lat);
+    const dLng = toRadians(destination.lng - origin.lng);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRadians(origin.lat)) *
+        Math.cos(toRadians(destination.lat)) *
+        Math.sin(dLng / 2) ** 2;
+    return radiusMiles * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  private fetchJson<T>(url: URL | string, options: { headers?: Record<string, string> } = {}): Promise<T> {
+    return new Promise((resolve, reject) => {
+      const request = https.get(url, { headers: options.headers }, (response) => {
+        let body = '';
+
+        response.on('data', (chunk) => {
+          body += chunk;
+        });
+
+        response.on('end', () => {
+          if (!response.statusCode || response.statusCode < 200 || response.statusCode >= 300) {
+            reject(new Error(`Request failed with status ${response.statusCode}`));
+            return;
+          }
+
+          try {
+            resolve(JSON.parse(body) as T);
+          } catch (error) {
+            reject(error);
+          }
+        });
+      });
+
+      request.on('error', reject);
+      request.setTimeout(10000, () => {
+        request.destroy(new Error('Request timed out'));
+      });
+    });
   }
   
   private generateGenericStopSets(_request: RouteRequest, routeData: any): StopOptionSet[] {
@@ -626,27 +868,32 @@ After you make your selections, I'll generate:
   async generateFinalItinerary(request: RouteRequest, selections: SelectedStops): Promise<FinalItinerary> {
     const routeKey = `${request.origin.toLowerCase()}-${request.destination.toLowerCase()}`;
     const routeData = VERIFIED_ROUTES[routeKey];
-    
-    const allStops = [...VERIFIED_POIS_LA_SF, ...VERIFIED_RESTAURANTS_LA_SF, ...VERIFIED_MOTELS_LA_SF];
+
+    const routePlan = routeData ? null : await this.planRoute(request);
+    const allStops = routeData
+      ? [...VERIFIED_POIS_LA_SF, ...VERIFIED_RESTAURANTS_LA_SF, ...VERIFIED_MOTELS_LA_SF]
+      : routePlan!.stopOptionSets.flatMap((set) => [...set.pois, ...set.restaurants, ...set.motels]);
     const selectedStops = allStops.filter(stop => 
       selections.selectedPois.includes(stop.id) ||
       selections.selectedRestaurants.includes(stop.id) ||
       selections.selectedMotel === stop.id
     ).sort((a, b) => a.distanceFromStart - b.distanceFromStart);
     
-    const calendarEvents = this.generateCalendarEvents(request, selectedStops, selections.departureTime);
-    const totalCost = this.calculateTotalCost(selectedStops, request.travelers);
+    const routeSummary = routeData ? this.buildRouteSummary(request, routeData) : routePlan!.routeSummary;
+    const calendarEvents = this.generateCalendarEvents(request, selectedStops, selections.departureTime, routeSummary.totalDistance);
+    const offlineMapPlan = routeData ? this.buildOfflineMapPlan(request, routeData) : routePlan!.offlineMapPlan;
+    const totalCost = this.calculateTotalCost(selectedStops, request.travelers, routeSummary.totalDistance);
     
     return {
-      routeSummary: this.buildRouteSummary(request, routeData),
+      routeSummary,
       stops: selectedStops,
       calendarEvents,
-      offlineMapPlan: this.buildOfflineMapPlan(request, routeData),
+      offlineMapPlan,
       totalEstimatedCost: totalCost
     };
   }
   
-  private generateCalendarEvents(request: RouteRequest, stops: RouteStop[], departureTime: string): CalendarEvent[] {
+  private generateCalendarEvents(request: RouteRequest, stops: RouteStop[], departureTime: string, totalDistance?: number): CalendarEvent[] {
     const events: CalendarEvent[] = [];
     let currentTime = new Date(`${request.departureDate}T${departureTime}`);
     
@@ -688,8 +935,9 @@ After you make your selections, I'll generate:
     
     // Arrival event
     const routeData = VERIFIED_ROUTES[`${request.origin.toLowerCase()}-${request.destination.toLowerCase()}`];
-    if (routeData) {
-      const remainingDistance = routeData.distance - lastDistance;
+    const fullDistance = totalDistance || routeData?.distance;
+    if (fullDistance) {
+      const remainingDistance = fullDistance - lastDistance;
       const remainingMinutes = Math.round(remainingDistance * 1);
       currentTime = new Date(currentTime.getTime() + remainingMinutes * 60000);
     }
@@ -707,7 +955,7 @@ After you make your selections, I'll generate:
     return events;
   }
   
-  private calculateTotalCost(stops: RouteStop[], travelers: number): FinalItinerary['totalEstimatedCost'] {
+  private calculateTotalCost(stops: RouteStop[], travelers: number, routeDistance = 382): FinalItinerary['totalEstimatedCost'] {
     let motels = 0;
     let meals = 0;
     let activities = 0;
@@ -723,7 +971,7 @@ After you make your selections, I'll generate:
     }
     
     // Estimate gas cost (assume 30 mpg, $4/gallon)
-    const gas = Math.round(382 / 30 * 4);
+    const gas = Math.round(routeDistance / 30 * 4);
     
     return {
       amount: motels + meals + activities + gas,

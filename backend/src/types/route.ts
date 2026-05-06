@@ -46,6 +46,10 @@ export interface RouteStop {
   amenities?: string[];
   imageUrl?: string;
   distanceFromStart: number; // miles from origin
+  source?: 'verified-dataset' | 'free-route-estimate' | 'open-data';
+  confidenceScore?: number;
+  whyRecommended?: string[];
+  riskFlags?: string[];
 }
 
 export interface StopOptionSet {
