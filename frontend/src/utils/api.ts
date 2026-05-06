@@ -4,9 +4,13 @@ const API_BASE_URL =
   (window.location.hostname === 'localhost' ? 'http://localhost:3001' : '');
 
 export const DEMO_MODE_KEY = 'travelm8DemoMode';
+export const DEMO_TOKEN = 'travelm8-demo-token';
 
 export const isDemoMode = (): boolean =>
   process.env.REACT_APP_DEMO_MODE === 'true' || localStorage.getItem(DEMO_MODE_KEY) === 'true';
+
+export const isDemoSession = (): boolean =>
+  isDemoMode() && localStorage.getItem('authToken') === DEMO_TOKEN;
 
 export const enableDemoMode = (): void => {
   localStorage.setItem(DEMO_MODE_KEY, 'true');
@@ -228,7 +232,7 @@ function demoFinalize(options: RequestInit): ApiResponse {
 }
 
 function demoApiResponse<T>(endpoint: string, options: RequestInit): ApiResponse<T> | null {
-  if (!isDemoMode()) return null;
+  if (!isDemoSession()) return null;
 
   if (endpoint.startsWith('/trips')) {
     if (options.method === 'GET') {

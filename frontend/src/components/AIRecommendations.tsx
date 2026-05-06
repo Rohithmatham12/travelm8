@@ -148,9 +148,9 @@ const AIRecommendations: React.FC = () => {
     return (
       <div className="ai-recommendations">
         <div className="ai-loading">
-          <div className="loading-spinner">🤖</div>
-          <h2>AI is crafting your perfect trip...</h2>
-          <p>Analyzing your preferences and generating personalized recommendations</p>
+          <div className="loading-spinner">TM8</div>
+          <h2>Building destination recommendations...</h2>
+          <p>Matching stays, meals, and activities to your destination, budget, and preferences.</p>
           <div className="loading-dots">
             <span>.</span><span>.</span><span>.</span>
           </div>
@@ -183,13 +183,14 @@ const AIRecommendations: React.FC = () => {
       <div className="ai-recommendations">
         <div className="recommendations-header">
           <div className="header-content">
-            <h1>🤖 AI Travel Recommendations</h1>
+            <span className="section-kicker">Trip Recommendations</span>
+            <h1>Destination ideas for your stay</h1>
             <div className="trip-info">
               <h2>{recommendations.destination}</h2>
               <p>{recommendations.duration} days • {formData.travelers} travelers</p>
               <p>
-                Destination plan: these places are near your stay. Use Route Planner for
-                drive-corridor stops between an origin and destination.
+                These picks are near the destination. Use Route Planner for meals, stops, and
+                motels along the drive from an origin.
               </p>
               <div className="cost-breakdown">
                 <div className="total-cost">
@@ -359,9 +360,9 @@ const AIRecommendations: React.FC = () => {
             </div>
           </section>
 
-          {/* AI-Generated Itinerary */}
+          {/* Suggested Itinerary */}
           <section className="recommendation-section">
-            <h3>📅 AI-Generated Itinerary</h3>
+            <h3>Suggested Itinerary</h3>
             <div className="itinerary-timeline">
               {recommendations.itinerary.map((day, index) => (
                 <div key={index} className="itinerary-day">
@@ -408,9 +409,9 @@ const AIRecommendations: React.FC = () => {
             </div>
           </section>
 
-          {/* AI Travel Tips */}
+          {/* Travel Tips */}
           <section className="recommendation-section">
-            <h3>💡 AI Travel Tips</h3>
+            <h3>Travel Tips</h3>
             <div className="tips-list">
               {recommendations.tips.map((tip, index) => (
                 <div key={index} className="tip-item">
@@ -441,8 +442,8 @@ const AIRecommendations: React.FC = () => {
     <div className="ai-recommendations">
       <div className="recommendations-form">
         <div className="form-header">
-          <h1>🤖 AI Travel Recommendations</h1>
-          <p>Get personalized travel suggestions powered by AI</p>
+          <h1>Trip Recommendations</h1>
+          <p>Find places near a destination. Use Route Planner for stops along a drive.</p>
         </div>
 
         <div className="form-content">

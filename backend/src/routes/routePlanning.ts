@@ -19,17 +19,9 @@ routePlanningRouter.post('/plan', async (req: AuthRequest, res) => {
   try {
     const request: RouteRequest = req.body;
 
-    // Validate required fields
-    if (!request.origin || !request.destination) {
-      return badRequestResponse(res, 'Origin and destination are required');
-    }
-
-    if (!request.departureDate) {
-      return badRequestResponse(res, 'Departure date is required');
-    }
-
-    if (!request.travelers || request.travelers < 1) {
-      return badRequestResponse(res, 'Number of travelers must be at least 1');
+    const validationError = validateRouteRequest(request);
+    if (validationError) {
+      return badRequestResponse(res, validationError);
     }
 
     const routePlan = await routePlanningService.planRoute(request);
@@ -50,6 +42,15 @@ routePlanningRouter.post('/finalize', async (req: AuthRequest, res) => {
 
     if (!routeRequest || !selections) {
       return badRequestResponse(res, 'Route request and selections are required');
+    }
+
+    const validationError = validateRouteRequest(routeRequest);
+    if (validationError) {
+      return badRequestResponse(res, validationError);
+    }
+
+    if (!isValidTime(selections.departureTime)) {
+      return badRequestResponse(res, 'Departure time must use HH:mm format');
     }
 
     // Relaxed validation: allow finalizing with restaurants or motels even without POIs
@@ -116,4 +117,46 @@ END:VEVENT
 
 function formatDateForICS(date: Date): string {
   return date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+}
+
+function validateRouteRequest(request: RouteRequest): string | null {
+  if (!request.origin || !request.destination) {
+    return 'Origin and destination are required';
+  }
+
+  if (!request.departureDate || !isValidDate(request.departureDate)) {
+    return 'Departure date must use YYYY-MM-DD format';
+  }
+
+  if (request.departureTime && !isValidTime(request.departureTime)) {
+    return 'Departure time must use HH:mm format';
+  }
+
+  if (!Number.isFinite(request.travelers) || request.travelers < 1 || request.travelers > 20) {
+    return 'Number of travelers must be between 1 and 20';
+  }
+
+  if (request.budget?.mealBudget !== undefined && !isFiniteNonNegative(request.budget.mealBudget)) {
+    return 'Meal budget must be a valid non-negative number';
+  }
+
+  if (request.budget?.motelPerNight !== undefined && !isFiniteNonNegative(request.budget.motelPerNight)) {
+    return 'Motel budget must be a valid non-negative number';
+  }
+
+  return null;
+}
+
+function isValidDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isFinite(date.getTime());
+}
+
+function isValidTime(value: string): boolean {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+}
+
+function isFiniteNonNegative(value: number): boolean {
+  return Number.isFinite(value) && value >= 0;
 }

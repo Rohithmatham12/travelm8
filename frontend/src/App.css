@@ -2016,3 +2016,60 @@
     display: none;
   }
 }
+
+@media (max-width: 760px) {
+  .trip-recommendations,
+  .ai-recommendations {
+    padding: 0;
+  }
+
+  .recommendations-header {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding: 1.25rem;
+    border-radius: 8px;
+  }
+
+  .recommendations-header h1 {
+    font-size: 2rem;
+    line-height: 1.1;
+  }
+
+  .header-actions,
+  .recommendations-actions,
+  .error-actions {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: stretch;
+  }
+
+  .header-actions .btn,
+  .header-actions button,
+  .recommendations-actions .btn,
+  .recommendations-actions button,
+  .error-actions .btn,
+  .error-actions button {
+    flex: 1 1 160px;
+    text-align: center;
+  }
+
+  .recommendations-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .recommendations-form .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .itinerary-activity {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .activity-time {
+    width: fit-content;
+    min-width: 0;
+  }
+}

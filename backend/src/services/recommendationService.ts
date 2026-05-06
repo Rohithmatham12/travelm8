@@ -24,12 +24,36 @@ interface OpenDataPlace {
 
 type RecommendationKind = 'accommodation' | 'activity' | 'restaurant' | 'attraction';
 
+const KNOWN_DESTINATION_COORDINATES: Record<string, Coordinates> = {
+  'bapatla': { lat: 15.9044, lng: 80.4675 },
+  'chicago': { lat: 41.8781, lng: -87.6298 },
+  'chicago il': { lat: 41.8781, lng: -87.6298 },
+  'milwaukee': { lat: 43.0389, lng: -87.9065 },
+  'milwaukee wi': { lat: 43.0389, lng: -87.9065 },
+  'nellore': { lat: 14.4426, lng: 79.9865 },
+  'newark': { lat: 40.7357, lng: -74.1724 },
+  'newark nj': { lat: 40.7357, lng: -74.1724 },
+  'richmond': { lat: 37.5407, lng: -77.4360 },
+  'richmond va': { lat: 37.5407, lng: -77.4360 },
+  'sangareddy': { lat: 17.6140, lng: 78.0816 },
+  'virginia': { lat: 37.5407, lng: -77.4360 }
+};
+
 export class RecommendationService {
   async generateRecommendations(request: RecommendationRequest): Promise<RecommendationResponse> {
+    const preferences = request.preferences || {};
+    request = { ...request, preferences };
     const duration = this.calculateDuration(request.startDate, request.endDate);
     const destination = request.destination.trim();
-    const coordinates = await this.geocodeDestination(destination);
-    const needsAccommodation = duration > 1 || /hotel|motel|stay|accommodation/i.test(request.preferences.accommodationType || '');
+    const needsAccommodation = duration > 1 || /hotel|motel|stay|accommodation/i.test(preferences.accommodationType || '');
+
+    let coordinates: Coordinates;
+    try {
+      coordinates = await this.geocodeDestination(destination);
+    } catch (error: any) {
+      console.warn(`Destination geocoding failed for ${destination}: ${error.message || error}`);
+      return this.unavailableDataResponse(destination, duration, request, needsAccommodation);
+    }
 
     const [restaurants, attractions, accommodations, nearbyDayIdeas] = await Promise.all([
       this.findRecommendations(destination, coordinates, 'restaurant', request, duration),
@@ -76,10 +100,51 @@ export class RecommendationService {
     const start = new Date(startDate);
     const end = new Date(endDate);
     const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-    return Math.max(1, Math.min(days, 30));
+    return Number.isFinite(days) ? Math.max(1, Math.min(days, 30)) : 1;
+  }
+
+  private unavailableDataResponse(
+    destination: string,
+    duration: number,
+    request: RecommendationRequest,
+    needsAccommodation: boolean
+  ): RecommendationResponse {
+    const restaurants = [this.honestFallbackRecommendation(destination, 'restaurant', request)];
+    const activities = [this.honestFallbackRecommendation(destination, 'attraction', request)];
+    const accommodations = needsAccommodation
+      ? [this.honestFallbackRecommendation(destination, 'accommodation', request)]
+      : [];
+    const transport = this.generateTransportGuidance(destination, duration, request);
+    const recommendations = {
+      accommodations,
+      activities,
+      restaurants,
+      attractions: activities,
+      transport,
+      motels: accommodations
+    };
+    const itinerary = this.generateItinerary(request, recommendations, duration);
+
+    return {
+      destination,
+      duration,
+      recommendations,
+      itinerary,
+      totalEstimatedCost: this.calculateTotalCost(itinerary),
+      budgetBreakdown: this.calculateBudgetBreakdown(itinerary),
+      tips: [
+        `Live free-data lookup for ${destination} was temporarily unavailable or rate-limited.`,
+        'TravelM8 is showing verification checklists instead of inventing places.',
+        'Try again later for open-map place matches, or use Route Planner for drive-corridor planning.',
+        'Before committing, verify lodging, food, access, hours, and transport from current local sources.'
+      ]
+    };
   }
 
   private async geocodeDestination(destination: string): Promise<Coordinates> {
+    const knownCoordinates = this.lookupKnownCoordinates(destination);
+    if (knownCoordinates) return knownCoordinates;
+
     const url = new URL('https://nominatim.openstreetmap.org/search');
     url.searchParams.set('format', 'json');
     url.searchParams.set('limit', '1');
@@ -93,6 +158,15 @@ export class RecommendationService {
       lat: Number(first.lat),
       lng: Number(first.lon)
     };
+  }
+
+  private lookupKnownCoordinates(destination: string): Coordinates | undefined {
+    const key = destination
+      .toLowerCase()
+      .replace(/[,]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    return KNOWN_DESTINATION_COORDINATES[key];
   }
 
   private async findRecommendations(
@@ -363,14 +437,17 @@ export class RecommendationService {
 
   private dailyBudget(request: RecommendationRequest, share: number): number {
     const duration = this.calculateDuration(request.startDate, request.endDate);
-    const travelers = Math.max(1, request.travelers || 1);
-    const totalBudget = request.budget || travelers * duration * 120;
+    const travelers = Number.isFinite(request.travelers) ? Math.max(1, request.travelers || 1) : 1;
+    const totalBudget = Number.isFinite(request.budget) && request.budget > 0
+      ? request.budget
+      : travelers * duration * 120;
     return totalBudget / Math.max(1, duration) * share;
   }
 
   private generateTransportGuidance(destination: string, duration: number, request: RecommendationRequest): Recommendation[] {
     const mode = request.preferences.transportMode || 'any';
-    const cost = mode === 'walking' ? 0 : mode === 'public' ? duration * 8 : mode === 'rental' ? duration * 55 : duration * 25;
+    const safeDuration = Number.isFinite(duration) ? Math.max(1, duration) : 1;
+    const cost = mode === 'walking' ? 0 : mode === 'public' ? safeDuration * 8 : mode === 'rental' ? safeDuration * 55 : safeDuration * 25;
     return [{
       id: uuidv4(),
       type: 'transport',

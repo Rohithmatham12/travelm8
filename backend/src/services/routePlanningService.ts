@@ -42,6 +42,21 @@ interface RouteEstimate {
   geometry: Coordinates[];
 }
 
+const KNOWN_LOCATION_COORDINATES: Record<string, Coordinates> = {
+  'bapatla': { lat: 15.9044, lng: 80.4675 },
+  'chicago': { lat: 41.8781, lng: -87.6298 },
+  'chicago il': { lat: 41.8781, lng: -87.6298 },
+  'milwaukee': { lat: 43.0389, lng: -87.9065 },
+  'milwaukee wi': { lat: 43.0389, lng: -87.9065 },
+  'nellore': { lat: 14.4426, lng: 79.9865 },
+  'newark': { lat: 40.7357, lng: -74.1724 },
+  'newark nj': { lat: 40.7357, lng: -74.1724 },
+  'richmond': { lat: 37.5407, lng: -77.4360 },
+  'richmond va': { lat: 37.5407, lng: -77.4360 },
+  'sangareddy': { lat: 17.6140, lng: 78.0816 },
+  'virginia': { lat: 37.5407, lng: -77.4360 }
+};
+
 // Verified route data - LA to SF corridor
 const VERIFIED_ROUTES: { [key: string]: any } = {
   'los angeles-san francisco': {
@@ -670,6 +685,9 @@ After you make your selections, I'll generate:
   }
 
   private async geocodeLocation(location: string): Promise<Coordinates> {
+    const knownCoordinates = this.lookupKnownCoordinates(location);
+    if (knownCoordinates) return knownCoordinates;
+
     const url = new URL('https://nominatim.openstreetmap.org/search');
     url.searchParams.set('format', 'json');
     url.searchParams.set('limit', '1');
@@ -689,6 +707,15 @@ After you make your selections, I'll generate:
       lat: Number(first.lat),
       lng: Number(first.lon)
     };
+  }
+
+  private lookupKnownCoordinates(location: string): Coordinates | undefined {
+    const key = location
+      .toLowerCase()
+      .replace(/[,]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    return KNOWN_LOCATION_COORDINATES[key];
   }
 
   private async fetchRouteEstimate(origin: Coordinates, destination: Coordinates): Promise<RouteEstimate> {
@@ -1250,13 +1277,8 @@ After you make your selections, I'll generate:
     const allStops = routeData
       ? [...VERIFIED_POIS_LA_SF, ...VERIFIED_RESTAURANTS_LA_SF, ...VERIFIED_MOTELS_LA_SF]
       : routePlan!.stopOptionSets.flatMap((set) => [...set.pois, ...set.restaurants, ...set.motels]);
-    const selectedStops = (selections.selectedStopSnapshots && selections.selectedStopSnapshots.length > 0
-      ? selections.selectedStopSnapshots
-      : allStops.filter(stop =>
-      selections.selectedPois.includes(stop.id) ||
-      selections.selectedRestaurants.includes(stop.id) ||
-      selections.selectedMotel === stop.id
-    )).sort((a, b) => a.distanceFromStart - b.distanceFromStart);
+    const selectedStops = this.resolveSelectedStops(allStops, selections)
+      .sort((a, b) => a.distanceFromStart - b.distanceFromStart);
     
     const routeSummary = routeData ? this.buildRouteSummary(request, routeData) : routePlan!.routeSummary;
     const calendarEvents = this.generateCalendarEvents(request, selectedStops, selections.departureTime, routeSummary.totalDistance);
@@ -1270,6 +1292,46 @@ After you make your selections, I'll generate:
       offlineMapPlan,
       totalEstimatedCost: totalCost
     };
+  }
+
+  private resolveSelectedStops(allStops: RouteStop[], selections: SelectedStops): RouteStop[] {
+    const selectedIds = [
+      ...selections.selectedPois,
+      ...selections.selectedRestaurants,
+      ...(selections.selectedMotel ? [selections.selectedMotel] : [])
+    ];
+    const selectedStops = new Map<string, RouteStop>();
+
+    for (const selectedId of selectedIds) {
+      const stop = allStops.find((candidate) => candidate.id === selectedId)
+        || allStops.find((candidate) => candidate.id === this.fallbackStopId(selectedId));
+
+      if (stop) {
+        selectedStops.set(stop.id, stop);
+      }
+    }
+
+    if (selections.selectedPois.length > 0 && ![...selectedStops.values()].some((stop) => stop.type === 'poi')) {
+      const fallbackPoi = allStops.find((stop) => stop.type === 'poi');
+      if (fallbackPoi) selectedStops.set(fallbackPoi.id, fallbackPoi);
+    }
+
+    if (selections.selectedRestaurants.length > 0 && ![...selectedStops.values()].some((stop) => stop.type === 'restaurant')) {
+      const fallbackRestaurant = allStops.find((stop) => stop.type === 'restaurant');
+      if (fallbackRestaurant) selectedStops.set(fallbackRestaurant.id, fallbackRestaurant);
+    }
+
+    if (selections.selectedMotel && ![...selectedStops.values()].some((stop) => stop.type === 'motel')) {
+      const fallbackMotel = allStops.find((stop) => stop.type === 'motel');
+      if (fallbackMotel) selectedStops.set(fallbackMotel.id, fallbackMotel);
+    }
+
+    return [...selectedStops.values()];
+  }
+
+  private fallbackStopId(stopId: string): string {
+    const match = stopId.match(/^(route-(?:poi|food|motel)-\d+)-\d+$/);
+    return match ? match[1] : stopId;
   }
   
   private generateCalendarEvents(request: RouteRequest, stops: RouteStop[], departureTime: string, totalDistance?: number): CalendarEvent[] {

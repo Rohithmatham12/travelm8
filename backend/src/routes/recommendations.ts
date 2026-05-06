@@ -35,8 +35,8 @@ recommendationsRouter.post('/', async (req: AuthRequest, res) => {
       return badRequestResponse(res, 'Invalid date format. Use ISO 8601 format (YYYY-MM-DD)');
     }
 
-    if (startDate >= endDate) {
-      return badRequestResponse(res, 'End date must be after start date');
+    if (startDate > endDate) {
+      return badRequestResponse(res, 'End date must be the same as or after start date');
     }
 
     // Validate travelers count
@@ -51,4 +51,3 @@ recommendationsRouter.post('/', async (req: AuthRequest, res) => {
     internalErrorResponse(res, 'Failed to generate recommendations');
   }
 });
-
