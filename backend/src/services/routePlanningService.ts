@@ -17,6 +17,24 @@ interface Coordinates {
   lng: number;
 }
 
+interface OpenMapPlace {
+  name: string;
+  category: string;
+  type: 'poi' | 'restaurant' | 'motel';
+  coordinates: Coordinates;
+  distanceFromZone: number;
+  tags: Record<string, any>;
+}
+
+interface RouteZone {
+  label: string;
+  from: number;
+  to: number;
+  index: number;
+  distanceFromStart: number;
+  coordinates: Coordinates;
+}
+
 // Verified route data - LA to SF corridor
 const VERIFIED_ROUTES: { [key: string]: any } = {
   'los angeles-san francisco': {
@@ -421,10 +439,11 @@ export class RoutePlanningService {
   
   private calculateSuggestedStops(driveTime: number, frequency: string): number {
     const hoursOfDriving = driveTime / 60;
+    if (driveTime >= 60 && frequency === 'minimal') return Math.max(1, Math.floor(hoursOfDriving / 3));
     switch (frequency) {
-      case 'minimal': return Math.floor(hoursOfDriving / 3);
-      case 'frequent': return Math.ceil(hoursOfDriving / 1.5);
-      default: return Math.round(hoursOfDriving / 2);
+      case 'minimal': return Math.max(0, Math.floor(hoursOfDriving / 3));
+      case 'frequent': return Math.max(1, Math.ceil(hoursOfDriving / 1.5));
+      default: return Math.max(1, Math.round(hoursOfDriving / 2));
     }
   }
   
@@ -593,7 +612,7 @@ After you make your selections, I'll generate:
         destination: destinationCoords
       }
     };
-    const stopOptionSets = this.generateRouteAwareStopSets(request, routeData);
+    const stopOptionSets = await this.generateRouteAwareStopSets(request, routeData);
     const motels = stopOptionSets.flatMap((set) => set.motels);
     const budgetFriendlyMotels = [...motels]
       .filter((motel) => motel.budgetFit === 'within-budget' || motel.budgetFit === 'slightly-above')
@@ -686,29 +705,44 @@ After you make your selections, I'll generate:
     };
   }
 
-  private generateRouteAwareStopSets(request: RouteRequest, routeData: any): StopOptionSet[] {
+  private async generateRouteAwareStopSets(request: RouteRequest, routeData: any): Promise<StopOptionSet[]> {
     const distance = Math.max(routeData.distance, 1);
     const driveHours = routeData.driveTime / 60;
     const longDrive = driveHours >= 4;
     const lateDeparture = Number((request.departureTime || '08:00').split(':')[0]) >= 18;
-    const zones = [
-      { label: 'Early reset zone', from: 0.2, to: 0.35 },
-      { label: 'Meal and fatigue checkpoint', from: 0.45, to: 0.6 },
-      { label: 'Final stretch backup zone', from: 0.7, to: 0.85 }
-    ];
+    const zoneDefinitions = distance < 120
+      ? [{ label: 'Mid-route checkpoint', from: 0.42, to: 0.58 }]
+      : distance < 220
+        ? [
+            { label: 'Early reset zone', from: 0.25, to: 0.4 },
+            { label: 'Meal and fatigue checkpoint', from: 0.58, to: 0.72 }
+          ]
+        : [
+            { label: 'Early reset zone', from: 0.2, to: 0.35 },
+            { label: 'Meal and fatigue checkpoint', from: 0.45, to: 0.6 },
+            { label: 'Final stretch backup zone', from: 0.7, to: 0.85 }
+          ];
+    const zones: RouteZone[] = zoneDefinitions.map((zone, index) => {
+      const midpointRatio = (zone.from + zone.to) / 2;
+      return {
+        ...zone,
+        index,
+        distanceFromStart: Math.round(distance * midpointRatio),
+        coordinates: this.interpolateCoordinates(
+          routeData.coordinates.origin,
+          routeData.coordinates.destination,
+          midpointRatio
+        )
+      };
+    });
+    const openMapPlaces = await this.fetchOpenMapPlacesByZone(zones);
 
     return zones.map((zone, index) => {
-      const midpointRatio = (zone.from + zone.to) / 2;
-      const distanceFromStart = Math.round(distance * midpointRatio);
-      const coordinates = this.interpolateCoordinates(
-        routeData.coordinates.origin,
-        routeData.coordinates.destination,
-        midpointRatio
-      );
       const mealBudget = request.budget?.mealBudget || 18;
       const motelBudget = request.budget?.motelPerNight || 90;
+      const places = openMapPlaces.get(index);
 
-      const poi = this.withStopScoring({
+      const poi = this.withStopScoring(this.buildRouteStopFromPlace(places?.poi, {
         id: `route-poi-${index + 1}`,
         name: `${zone.label} rest stop zone`,
         category: longDrive ? 'fatigue-break' : 'route-break',
@@ -716,22 +750,22 @@ After you make your selections, I'll generate:
         description: longDrive
           ? 'Suggested stretch/rest zone based on drive duration. Choose a real rest area, park, cafe, or viewpoint nearby before departure.'
           : 'Suggested short break zone to keep the route comfortable without adding a large detour.',
-        coordinates,
+        coordinates: zone.coordinates,
         detourTime: 10,
         estimatedTimeAtStop: longDrive ? 25 : 15,
         verificationStatus: 'partially-verified',
-        distanceFromStart,
+        distanceFromStart: zone.distanceFromStart,
         source: 'free-route-estimate',
         riskFlags: longDrive ? ['fatigue-risk'] : []
-      }, request);
+      }), request);
 
-      const restaurant = this.withStopScoring({
+      const restaurant = this.withStopScoring(this.buildRouteStopFromPlace(places?.restaurant, {
         id: `route-food-${index + 1}`,
         name: this.mealNameForTime(request.departureTime, index),
         category: 'meal-search-zone',
         type: 'restaurant',
         description: `Find food around this route segment. Target meals under $${mealBudget}/person and verify opening hours before leaving.`,
-        coordinates,
+        coordinates: zone.coordinates,
         detourTime: 12,
         estimatedTimeAtStop: 40,
         priceRange: mealBudget <= 15 ? '$' : '$$',
@@ -739,11 +773,12 @@ After you make your selections, I'll generate:
         currency: 'USD',
         verificationStatus: 'partially-verified',
         openHours: 'Verify live hours',
-        distanceFromStart,
+        distanceFromStart: zone.distanceFromStart,
         source: 'free-route-estimate'
-      }, request);
+      }, mealBudget), request);
 
-      const motel = this.withStopScoring({
+      const shouldShowMotelBackup = longDrive || lateDeparture || distance > 180;
+      const motel = shouldShowMotelBackup ? this.withStopScoring(this.buildRouteStopFromPlace(places?.motel, {
         id: `route-motel-${index + 1}`,
         name: lateDeparture || longDrive ? `${zone.label} overnight backup` : `${zone.label} motel backup`,
         category: 'overnight-search-zone',
@@ -751,7 +786,7 @@ After you make your selections, I'll generate:
         description: lateDeparture
           ? 'Late-departure backup zone. Prefer booking before the drive if arrival may be after 10 PM.'
           : 'Backup overnight zone if fatigue, weather, or traffic makes the full drive uncomfortable.',
-        coordinates,
+        coordinates: zone.coordinates,
         detourTime: 15,
         estimatedTimeAtStop: 480,
         priceRange: motelBudget <= 90 ? '$' : '$$',
@@ -759,10 +794,10 @@ After you make your selections, I'll generate:
         currency: 'USD',
         verificationStatus: 'partially-verified',
         amenities: ['Verify parking', 'Verify late check-in', 'Save phone number'],
-        distanceFromStart,
+        distanceFromStart: zone.distanceFromStart,
         source: 'free-route-estimate',
         riskFlags: lateDeparture ? ['late-night-arrival-risk'] : []
-      }, request);
+      }, motelBudget), request) : null;
 
       return {
         setId: uuidv4(),
@@ -773,7 +808,7 @@ After you make your selections, I'll generate:
         },
         pois: [poi],
         restaurants: [restaurant],
-        motels: [motel]
+        motels: motel ? [motel] : []
       };
     });
   }
@@ -795,6 +830,154 @@ After you make your selections, I'll generate:
         stop.verificationStatus === 'verified' ? 'Verified stop record' : 'Open-data route estimate; verify exact place before departure'
       ]
     };
+  }
+
+  private buildRouteStopFromPlace(place: OpenMapPlace | undefined, fallback: RouteStop, targetPrice?: number): RouteStop {
+    if (!place) return fallback;
+
+    const detourTime = Math.max(3, Math.min(25, Math.round(place.distanceFromZone * 4)));
+    const priceEstimate = targetPrice ?? fallback.priceEstimate;
+    const addressParts = [
+      place.tags['addr:housenumber'],
+      place.tags['addr:street'],
+      place.tags['addr:city']
+    ].filter(Boolean);
+
+    return {
+      ...fallback,
+      name: place.name,
+      category: place.category,
+      description: this.describeOpenMapPlace(place, fallback),
+      coordinates: place.coordinates,
+      address: addressParts.length > 0 ? addressParts.join(' ') : fallback.address,
+      detourTime,
+      priceEstimate,
+      verificationStatus: 'partially-verified',
+      source: 'open-data',
+      openHours: place.tags.opening_hours || fallback.openHours,
+      amenities: fallback.amenities,
+      whyRecommended: [
+        `${fallback.distanceFromStart} miles from start`,
+        `${detourTime} minute estimated detour`,
+        'Found in OpenStreetMap near this route segment',
+        'Verify hours, prices, and availability before departure'
+      ]
+    };
+  }
+
+  private describeOpenMapPlace(place: OpenMapPlace, fallback: RouteStop): string {
+    if (place.type === 'restaurant') {
+      return `${place.name} appears in OpenStreetMap near this route segment. Use it as a real food candidate and verify hours before leaving.`;
+    }
+    if (place.type === 'motel') {
+      return `${place.name} appears in OpenStreetMap near this route segment. Treat it as an overnight candidate and verify late check-in, parking, and price.`;
+    }
+    return `${place.name} appears in OpenStreetMap near this route segment. It can work as a break or exploration stop; verify access before departure.`;
+  }
+
+  private async fetchOpenMapPlacesByZone(zones: RouteZone[]): Promise<Map<number, { poi?: OpenMapPlace; restaurant?: OpenMapPlace; motel?: OpenMapPlace }>> {
+    const result = new Map<number, { poi?: OpenMapPlace; restaurant?: OpenMapPlace; motel?: OpenMapPlace }>();
+    zones.forEach((zone) => result.set(zone.index, {}));
+
+    try {
+      const aroundQueries = zones.map((zone) => {
+        const radius = 12000;
+        const { lat, lng } = zone.coordinates;
+        return `
+          node(around:${radius},${lat},${lng})["amenity"~"^(restaurant|cafe|fast_food)$"];
+          way(around:${radius},${lat},${lng})["amenity"~"^(restaurant|cafe|fast_food)$"];
+          node(around:${radius},${lat},${lng})["tourism"~"^(hotel|motel|guest_house|attraction|viewpoint)$"];
+          way(around:${radius},${lat},${lng})["tourism"~"^(hotel|motel|guest_house|attraction|viewpoint)$"];
+          node(around:${radius},${lat},${lng})["leisure"="park"];
+          way(around:${radius},${lat},${lng})["leisure"="park"];
+          node(around:${radius},${lat},${lng})["historic"];
+          way(around:${radius},${lat},${lng})["historic"];
+        `;
+      }).join('\n');
+      const query = `[out:json][timeout:12];(${aroundQueries});out center tags 90;`;
+      const url = new URL('https://overpass-api.de/api/interpreter');
+      url.searchParams.set('data', query);
+      const data = await this.fetchJson<{ elements?: any[] }>(url, {
+        headers: {
+          'User-Agent': 'TravelM8 route planner demo (https://github.com/Rohithmatham12/travelm8)'
+        }
+      });
+
+      for (const element of data.elements || []) {
+        const place = this.elementToOpenMapPlace(element, zones);
+        if (!place) continue;
+
+        const zone = this.nearestZone(place.coordinates, zones);
+        if (!zone || place.distanceFromZone > 10) continue;
+
+        const bucket = result.get(zone.index) || {};
+        const existing = bucket[place.type];
+        if (!existing || place.distanceFromZone < existing.distanceFromZone) {
+          bucket[place.type] = place;
+          result.set(zone.index, bucket);
+        }
+      }
+    } catch (error) {
+      console.warn('OpenStreetMap place lookup failed; using route zone fallbacks');
+    }
+
+    return result;
+  }
+
+  private elementToOpenMapPlace(element: any, zones: RouteZone[]): OpenMapPlace | null {
+    const tags = element.tags || {};
+    const name = tags.name || tags.brand || tags.operator;
+    const coordinates = {
+      lat: Number(element.lat ?? element.center?.lat),
+      lng: Number(element.lon ?? element.center?.lon)
+    };
+
+    if (!name || !Number.isFinite(coordinates.lat) || !Number.isFinite(coordinates.lng)) {
+      return null;
+    }
+
+    const type = this.openMapStopType(tags);
+    if (!type) return null;
+
+    const nearest = this.nearestZone(coordinates, zones);
+    if (!nearest) return null;
+
+    return {
+      name,
+      category: this.openMapCategory(tags, type),
+      type,
+      coordinates,
+      distanceFromZone: this.haversineMiles(coordinates, nearest.coordinates),
+      tags
+    };
+  }
+
+  private openMapStopType(tags: Record<string, any>): OpenMapPlace['type'] | null {
+    if (['restaurant', 'cafe', 'fast_food'].includes(tags.amenity)) return 'restaurant';
+    if (['hotel', 'motel', 'guest_house'].includes(tags.tourism)) return 'motel';
+    if (tags.tourism || tags.leisure === 'park' || tags.historic) return 'poi';
+    return null;
+  }
+
+  private openMapCategory(tags: Record<string, any>, type: OpenMapPlace['type']): string {
+    if (type === 'restaurant') return tags.cuisine || tags.amenity || 'food';
+    if (type === 'motel') return tags.tourism || 'lodging';
+    return tags.tourism || tags.leisure || tags.historic || 'route stop';
+  }
+
+  private nearestZone(coordinates: Coordinates, zones: RouteZone[]): RouteZone | null {
+    let nearest: RouteZone | null = null;
+    let nearestDistance = Number.POSITIVE_INFINITY;
+
+    for (const zone of zones) {
+      const distance = this.haversineMiles(coordinates, zone.coordinates);
+      if (distance < nearestDistance) {
+        nearest = zone;
+        nearestDistance = distance;
+      }
+    }
+
+    return nearest;
   }
 
   private mealNameForTime(departureTime = '08:00', index: number): string {
