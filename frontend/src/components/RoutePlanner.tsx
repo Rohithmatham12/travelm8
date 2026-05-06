@@ -83,6 +83,9 @@ const RoutePlanner: React.FC = () => {
     setError(null);
     setRoutePlan(null);
     setFinalItinerary(null);
+    setSelectedPois([]);
+    setSelectedRestaurants([]);
+    setSelectedMotel('');
     
     try {
       const result = await post<RouteResponse>('/route/plan', {
@@ -103,6 +106,19 @@ const RoutePlanner: React.FC = () => {
       
       if (result.success && result.data) {
         setRoutePlan(result.data);
+        const recommendedPois = result.data.stopOptionSets
+          .map((set) => set.pois[0]?.id)
+          .filter(Boolean) as string[];
+        const recommendedRestaurants = result.data.stopOptionSets
+          .map((set) => set.restaurants[0]?.id)
+          .filter(Boolean) as string[];
+        const recommendedMotel = result.data.budgetFriendlyMotels[0]?.id ||
+          result.data.topRatedMotels[0]?.id ||
+          result.data.stopOptionSets.flatMap((set) => set.motels)[0]?.id ||
+          '';
+        setSelectedPois(recommendedPois);
+        setSelectedRestaurants(recommendedRestaurants);
+        setSelectedMotel(recommendedMotel);
       } else {
         setError(result.error || 'Failed to plan route');
       }
@@ -127,6 +143,14 @@ const RoutePlanner: React.FC = () => {
 
   const handleFinalize = async () => {
     if (!routePlan) return;
+
+    const selectedStopSnapshots = routePlan.stopOptionSets
+      .flatMap((set) => [...set.pois, ...set.restaurants, ...set.motels])
+      .filter((stop) =>
+        selectedPois.includes(stop.id) ||
+        selectedRestaurants.includes(stop.id) ||
+        selectedMotel === stop.id
+      );
     
     setLoading(true);
     try {
@@ -144,7 +168,8 @@ const RoutePlanner: React.FC = () => {
           selectedPois,
           selectedRestaurants,
           selectedMotel,
-          departureTime
+          departureTime,
+          selectedStopSnapshots
         }
       });
       
