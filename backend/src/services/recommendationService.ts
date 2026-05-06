@@ -31,15 +31,16 @@ export class RecommendationService {
     const coordinates = await this.geocodeDestination(destination);
     const needsAccommodation = duration > 1 || /hotel|motel|stay|accommodation/i.test(request.preferences.accommodationType || '');
 
-    const [restaurants, attractions, accommodations] = await Promise.all([
+    const [restaurants, attractions, accommodations, nearbyDayIdeas] = await Promise.all([
       this.findRecommendations(destination, coordinates, 'restaurant', request, duration),
       this.findRecommendations(destination, coordinates, 'attraction', request, duration),
       needsAccommodation
         ? this.findRecommendations(destination, coordinates, 'accommodation', request, duration)
-        : Promise.resolve([])
+        : Promise.resolve([]),
+      this.findNearbyDayIdeas(destination, coordinates, request)
     ]);
 
-    const activities = attractions.slice(0, Math.max(3, Math.min(10, duration * 2)));
+    const activities = [...attractions, ...nearbyDayIdeas].slice(0, Math.max(3, Math.min(18, duration * 2)));
     const transport = this.generateTransportGuidance(destination, duration, request);
     const recommendations = {
       accommodations,
@@ -64,7 +65,8 @@ export class RecommendationService {
         restaurants,
         activities,
         accommodations,
-        needsAccommodation
+        needsAccommodation,
+        nearbyDayIdeas
       })
     };
   }
@@ -147,6 +149,53 @@ export class RecommendationService {
     }
 
     return places.sort((a, b) => this.distanceMiles(a.coordinates, coordinates) - this.distanceMiles(b.coordinates, coordinates));
+  }
+
+  private async findNearbyDayIdeas(destination: string, coordinates: Coordinates, request: RecommendationRequest): Promise<Recommendation[]> {
+    const places: Recommendation[] = [];
+    const queries = [`beach near ${destination}`, `town near ${destination}`, `park near ${destination}`, `tourist attraction near ${destination}`];
+    const seen = new Set<string>();
+
+    for (const query of queries) {
+      try {
+        const url = new URL('https://nominatim.openstreetmap.org/search');
+        const latDelta = 0.75;
+        const lngDelta = 0.75;
+        url.searchParams.set('format', 'json');
+        url.searchParams.set('limit', '6');
+        url.searchParams.set('q', query);
+        url.searchParams.set('bounded', '1');
+        url.searchParams.set('addressdetails', '1');
+        url.searchParams.set('extratags', '1');
+        url.searchParams.set(
+          'viewbox',
+          `${coordinates.lng - lngDelta},${coordinates.lat + latDelta},${coordinates.lng + lngDelta},${coordinates.lat - latDelta}`
+        );
+
+        const results = await this.fetchJson<any[]>(url);
+        for (const item of results) {
+          const place = this.nominatimResultToPlace(item, coordinates, 'attraction');
+          if (!place) continue;
+          if (!this.isUsefulPlace(place, 'attraction')) continue;
+          const distance = this.distanceMiles(place.coordinates, coordinates);
+          if (distance < 5 || distance > 55) continue;
+          const key = place.name.toLowerCase();
+          if (seen.has(key)) continue;
+          seen.add(key);
+          places.push({
+            ...this.placeToRecommendation(place, 'attraction', request),
+            title: `${place.name} nearby day idea`,
+            description: `${place.name} is about ${Math.round(distance)} miles from ${destination}. Use it as a day-trip candidate and verify transport, access, and timings before you go.`,
+            tags: ['nearby-day-idea', 'open-data', 'verify-before-going'],
+            duration: 300
+          });
+        }
+      } catch (error: any) {
+        console.warn(`Nearby day idea lookup failed for ${query}: ${error.message || error}`);
+      }
+    }
+
+    return places.slice(0, 8);
   }
 
   private queriesForKind(destination: string, kind: RecommendationKind): string[] {
@@ -316,20 +365,23 @@ export class RecommendationService {
   ): ItineraryDay[] {
     const itinerary: ItineraryDay[] = [];
     const startDate = new Date(request.startDate);
+    const unusedActivities = [...recommendations.activities];
+    const unusedRestaurants = [...recommendations.restaurants];
+    const accommodation = duration > 1 && recommendations.accommodations.length > 0
+      ? recommendations.accommodations[0]
+      : undefined;
 
     for (let i = 0; i < duration; i++) {
       const currentDate = new Date(startDate);
       currentDate.setDate(startDate.getDate() + i);
-      const activity = recommendations.activities[i % recommendations.activities.length];
-      const secondActivity = recommendations.activities[(i + 1) % recommendations.activities.length];
-      const meals = recommendations.restaurants.length > 0
-        ? [recommendations.restaurants[i % recommendations.restaurants.length]]
-        : [];
-      const accommodation = duration > 1 && recommendations.accommodations.length > 0
-        ? recommendations.accommodations[0]
-        : undefined;
+      const activities = unusedActivities.splice(0, 2);
+      if (activities.length === 0) {
+        activities.push(this.openDayRecommendation(request.destination, i + 1, request));
+      }
+      const meals = unusedRestaurants.length > 0
+        ? [unusedRestaurants.shift() as Recommendation]
+        : [this.openMealRecommendation(request.destination, i + 1, request)];
       const transport = i === 0 ? recommendations.transport : [];
-      const activities = [activity, secondActivity].filter(Boolean);
 
       itinerary.push({
         date: currentDate.toISOString().split('T')[0],
@@ -373,7 +425,7 @@ export class RecommendationService {
   private generateTips(
     destination: string,
     duration: number,
-    context: { restaurants: Recommendation[]; activities: Recommendation[]; accommodations: Recommendation[]; needsAccommodation: boolean }
+    context: { restaurants: Recommendation[]; activities: Recommendation[]; accommodations: Recommendation[]; needsAccommodation: boolean; nearbyDayIdeas: Recommendation[] }
   ): string[] {
     const tips = [
       `Every recommendation shown for ${destination} is either open-data based or clearly marked as needing verification.`,
@@ -386,7 +438,10 @@ export class RecommendationService {
         : 'Save at least one backup restaurant near your stay in case hours change.',
       context.activities.some((item) => item.source === 'unavailable')
         ? 'Local experience data was sparse, so check recent blogs or tourism pages for current events.'
-        : 'Prefer places with a visible map location and recent reviews before finalizing the day.'
+        : 'Prefer places with a visible map location and recent reviews before finalizing the day.',
+      context.nearbyDayIdeas.length > 0
+        ? 'For longer stays, TravelM8 adds nearby day ideas so the itinerary does not repeat the same local spots.'
+        : 'For longer stays with limited local data, use the open days to rest, handle errands, or verify nearby towns before traveling.'
     ];
 
     if (!context.needsAccommodation) {
@@ -394,6 +449,38 @@ export class RecommendationService {
     }
 
     return tips.slice(0, 6);
+  }
+
+  private openDayRecommendation(destination: string, dayNumber: number, request: RecommendationRequest): Recommendation {
+    return {
+      id: uuidv4(),
+      type: 'activity',
+      title: `Open exploration day ${dayNumber}`,
+      description: `No additional confident open-data attraction was found for this day near ${destination}. Use this day for rest, local errands, beach/market research, or a verified nearby day trip instead of repeating an already planned place.`,
+      location: destination,
+      price: { amount: 0, currency: request.currency || 'USD', perPerson: true },
+      duration: 180,
+      category: 'Open day',
+      tags: ['honest-fallback', 'no-repeat'],
+      source: 'unavailable',
+      verificationNote: 'TravelM8 avoided repeating the same attraction and did not invent a new place.'
+    };
+  }
+
+  private openMealRecommendation(destination: string, dayNumber: number, request: RecommendationRequest): Recommendation {
+    return {
+      id: uuidv4(),
+      type: 'restaurant',
+      title: `Meal backup search ${dayNumber}`,
+      description: `No additional confident restaurant was found for this day near ${destination}. Search close to your hotel/current location and verify hours before leaving.`,
+      location: destination,
+      price: { amount: Math.max(8, Math.round(this.dailyBudget(request, 0.12))), currency: request.currency || 'USD', perPerson: true },
+      duration: 60,
+      category: 'Meal backup',
+      tags: ['honest-fallback', 'no-repeat'],
+      source: 'unavailable',
+      verificationNote: 'TravelM8 avoided repeating the same restaurant and did not invent a new one.'
+    };
   }
 
   private distanceMiles(origin: Coordinates, destination: Coordinates): number {

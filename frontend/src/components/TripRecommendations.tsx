@@ -189,6 +189,10 @@ const TripRecommendations: React.FC = () => {
           <div className="trip-info">
             <h2>{tripData?.title || recommendations.destination}</h2>
             <p>{recommendations.duration} days • {recommendations.destination}</p>
+            <p>
+              Destination plan: these places are near your stay. Use Route Planner when you want
+              stops along the drive from an origin to this destination.
+            </p>
             <div className="cost-breakdown">
               <div className="total-cost">
                 <strong>Total Estimated Cost: {formatCurrency(recommendations.totalEstimatedCost)}</strong>

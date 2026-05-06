@@ -8,12 +8,13 @@ import { externalRouter } from './routes/external';
 import { authRouter } from './routes/auth';
 import { healthRouter } from './routes/health';
 import { routePlanningRouter } from './routes/routePlanning';
+import { getDataDir } from './utils/storage';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Ensure data directory exists
-const dataDir = path.join(__dirname, '../../data');
+const dataDir = getDataDir();
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }

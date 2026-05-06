@@ -187,6 +187,10 @@ const AIRecommendations: React.FC = () => {
             <div className="trip-info">
               <h2>{recommendations.destination}</h2>
               <p>{recommendations.duration} days • {formData.travelers} travelers</p>
+              <p>
+                Destination plan: these places are near your stay. Use Route Planner for
+                drive-corridor stops between an origin and destination.
+              </p>
               <div className="cost-breakdown">
                 <div className="total-cost">
                   <strong>Total Estimated Cost: {formatCurrency(recommendations.totalEstimatedCost)}</strong>
