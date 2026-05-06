@@ -18,6 +18,10 @@ export interface User {
 }
 
 export interface AuthRequest extends Request {
+  body: any;
+  query: any;
+  params: any;
+  headers: any;
   userId?: string;
   user?: User;
 }
