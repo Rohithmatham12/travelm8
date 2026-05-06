@@ -8,6 +8,7 @@ import {
   enableDemoMode,
   disableDemoMode,
   isDemoMode,
+  DEMO_TOKEN,
 } from './api';
 
 export { getUser, isDemoMode };
@@ -31,7 +32,7 @@ function demoAuth(email: string, name?: string): AuthResponse {
     name: name || 'TravelM8 Demo',
     role: 'traveler' as const,
   };
-  const token = 'travelm8-demo-token';
+  const token = DEMO_TOKEN;
   setAuthToken(token);
   setUser(user);
   return { user, token };
@@ -46,9 +47,7 @@ export function startDemoSession(): AuthResponse {
  * Register a new user
  */
 export async function register(email: string, password: string, name?: string): Promise<AuthResponse> {
-  if (isDemoMode()) {
-    return demoAuth(email, name);
-  }
+  disableDemoMode();
 
   const response = await post<{ user: User; token: string }>('/auth/register', {
     email,
@@ -69,9 +68,7 @@ export async function register(email: string, password: string, name?: string): 
  * Login user
  */
 export async function login(email: string, password: string): Promise<AuthResponse> {
-  if (isDemoMode()) {
-    return demoAuth(email);
-  }
+  disableDemoMode();
 
   const response = await post<{ user: User; token: string }>('/auth/login', {
     email,

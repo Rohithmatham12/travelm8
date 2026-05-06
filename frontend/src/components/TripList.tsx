@@ -4,6 +4,7 @@ import { Trip } from '../types/trip';
 import { get } from '../utils/api';
 
 const TripList: React.FC = () => {
+  const [allTrips, setAllTrips] = useState<Trip[]>([]);
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -21,11 +22,12 @@ const TripList: React.FC = () => {
       const response = await get<{ trips: Trip[]; nextToken?: string }>(path);
       
       if (response.success && response.data) {
-        const allTrips = response.data.trips || [];
+        const loadedTrips = response.data.trips || [];
         // Filter by status on client side if needed
         const filteredTrips = statusFilter === 'all' 
-          ? allTrips 
-          : allTrips.filter(trip => trip.status === statusFilter);
+          ? loadedTrips
+          : loadedTrips.filter(trip => trip.status === statusFilter);
+        setAllTrips(loadedTrips);
         setTrips(filteredTrips);
       } else {
         setError(response.error || 'Failed to load trips');
@@ -58,13 +60,13 @@ const TripList: React.FC = () => {
   };
 
   const getStatusCounts = () => {
-    const counts = trips.reduce((acc, trip) => {
+    const counts = allTrips.reduce((acc, trip) => {
       acc[trip.status] = (acc[trip.status] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
     
     return {
-      all: trips.length,
+      all: allTrips.length,
       draft: counts.draft || 0,
       planning: counts.planning || 0,
       confirmed: counts.confirmed || 0,

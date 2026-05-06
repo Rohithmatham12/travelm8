@@ -64,9 +64,9 @@ const RoutePlanner: React.FC = () => {
   const [destination, setDestination] = useState('San Francisco');
   const [departureDate, setDepartureDate] = useState('');
   const [departureTime, setDepartureTime] = useState('08:00');
-  const [travelers, setTravelers] = useState(2);
-  const [motelBudget, setMotelBudget] = useState(80);
-  const [mealBudget, setMealBudget] = useState(15);
+  const [travelers, setTravelers] = useState('2');
+  const [motelBudget, setMotelBudget] = useState('80');
+  const [mealBudget, setMealBudget] = useState('15');
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,6 +78,41 @@ const RoutePlanner: React.FC = () => {
   
   const [finalItinerary, setFinalItinerary] = useState<any>(null);
 
+  const getRouteRequest = () => {
+    const travelerCount = Number(travelers);
+    const motelBudgetAmount = Number(motelBudget);
+    const mealBudgetAmount = Number(mealBudget);
+
+    if (!origin.trim() || !destination.trim()) {
+      throw new Error('Origin and destination are required.');
+    }
+    if (!Number.isFinite(travelerCount) || travelerCount < 1 || travelerCount > 20) {
+      throw new Error('Travelers must be between 1 and 20.');
+    }
+    if (!Number.isFinite(motelBudgetAmount) || motelBudgetAmount < 0) {
+      throw new Error('Motel budget must be a valid number.');
+    }
+    if (!Number.isFinite(mealBudgetAmount) || mealBudgetAmount < 0) {
+      throw new Error('Meal budget must be a valid number.');
+    }
+
+    return {
+      origin: origin.trim(),
+      destination: destination.trim(),
+      departureDate: departureDate || new Date().toISOString().split('T')[0],
+      departureTime,
+      travelers: travelerCount,
+      budget: {
+        motelPerNight: motelBudgetAmount,
+        mealBudget: mealBudgetAmount
+      },
+      preferences: {
+        stopFrequency: 'moderate'
+      },
+      needsOfflineMaps: true
+    };
+  };
+
   const handlePlanRoute = async () => {
     setLoading(true);
     setError(null);
@@ -88,21 +123,7 @@ const RoutePlanner: React.FC = () => {
     setSelectedMotel('');
     
     try {
-      const result = await post<RouteResponse>('/route/plan', {
-        origin,
-        destination,
-        departureDate: departureDate || new Date().toISOString().split('T')[0],
-        departureTime,
-        travelers,
-        budget: {
-          motelPerNight: motelBudget,
-          mealBudget: mealBudget
-        },
-        preferences: {
-          stopFrequency: 'moderate'
-        },
-        needsOfflineMaps: true
-      });
+      const result = await post<RouteResponse>('/route/plan', getRouteRequest());
       
       if (result.success && result.data) {
         setRoutePlan(result.data);
@@ -144,32 +165,16 @@ const RoutePlanner: React.FC = () => {
   const handleFinalize = async () => {
     if (!routePlan) return;
 
-    const selectedStopSnapshots = routePlan.stopOptionSets
-      .flatMap((set) => [...set.pois, ...set.restaurants, ...set.motels])
-      .filter((stop) =>
-        selectedPois.includes(stop.id) ||
-        selectedRestaurants.includes(stop.id) ||
-        selectedMotel === stop.id
-      );
-    
     setLoading(true);
     try {
       const result = await post<any>('/route/finalize', {
-        routeRequest: {
-          origin,
-          destination,
-          departureDate: departureDate || new Date().toISOString().split('T')[0],
-          departureTime,
-          travelers,
-          budget: { motelPerNight: motelBudget, mealBudget }
-        },
+        routeRequest: getRouteRequest(),
         selections: {
           routeId: 'route-1',
           selectedPois,
           selectedRestaurants,
           selectedMotel,
-          departureTime,
-          selectedStopSnapshots
+          departureTime
         }
       });
       
@@ -264,14 +269,14 @@ const RoutePlanner: React.FC = () => {
           <span className="planner-kicker">Route Copilot</span>
           <h1>Build a road-trip plan around the drive, not just the destination.</h1>
           <p>
-            Plan stop zones, meals, motel backups, budget fit, fatigue risk, and offline packet
-            guidance using free open-map services.
+            Choose stop zones, meals, motel backups, budget fit, fatigue risk, and offline
+            guidance for the miles between your origin and destination.
           </p>
         </div>
         <div className="planner-signal-grid">
           <div>
-            <strong>Free APIs</strong>
-            <span>Nominatim, OSRM, OpenStreetMap, Leaflet, and ICS export.</span>
+            <strong>Drive-first planning</strong>
+            <span>Stops are grouped by distance from the start, not just destination popularity.</span>
           </div>
           <div>
             <strong>Explainable stops</strong>
@@ -330,7 +335,7 @@ const RoutePlanner: React.FC = () => {
               min="1"
               max="10"
               value={travelers}
-              onChange={(e) => setTravelers(parseInt(e.target.value))}
+              onChange={(e) => setTravelers(e.target.value)}
             />
           </div>
         </div>
@@ -343,7 +348,7 @@ const RoutePlanner: React.FC = () => {
               <input
                 type="number"
                 value={motelBudget}
-                onChange={(e) => setMotelBudget(parseInt(e.target.value))}
+                onChange={(e) => setMotelBudget(e.target.value)}
               />
             </div>
           </div>
@@ -354,7 +359,7 @@ const RoutePlanner: React.FC = () => {
               <input
                 type="number"
                 value={mealBudget}
-                onChange={(e) => setMealBudget(parseInt(e.target.value))}
+                onChange={(e) => setMealBudget(e.target.value)}
               />
             </div>
           </div>
@@ -430,7 +435,7 @@ const RoutePlanner: React.FC = () => {
                             {poi.rating.toFixed(1)} rating ({poi.reviewCount} reviews)
                           </div>
                         )}
-                        {poi.priceEstimate && (
+                        {typeof poi.priceEstimate === 'number' && (
                           <div className="price">
                             ${poi.priceEstimate} {getBudgetBadge(poi.budgetFit)}
                           </div>
@@ -468,9 +473,11 @@ const RoutePlanner: React.FC = () => {
                             {restaurant.rating.toFixed(1)} rating ({restaurant.reviewCount} reviews)
                           </div>
                         )}
-                        <div className="price">
-                          ~${restaurant.priceEstimate}/person {getBudgetBadge(restaurant.budgetFit)}
-                        </div>
+                        {typeof restaurant.priceEstimate === 'number' && (
+                          <div className="price">
+                            ~${restaurant.priceEstimate}/person {getBudgetBadge(restaurant.budgetFit)}
+                          </div>
+                        )}
                         {restaurant.openHours && (
                           <div className="hours">{restaurant.openHours}</div>
                         )}
@@ -506,9 +513,11 @@ const RoutePlanner: React.FC = () => {
                             {motel.rating.toFixed(1)} rating ({motel.reviewCount} reviews)
                           </div>
                         )}
-                        <div className="price">
-                          ${motel.priceEstimate}/night {getBudgetBadge(motel.budgetFit)}
-                        </div>
+                        {typeof motel.priceEstimate === 'number' && (
+                          <div className="price">
+                            ${motel.priceEstimate}/night {getBudgetBadge(motel.budgetFit)}
+                          </div>
+                        )}
                         {motel.amenities && (
                           <div className="amenities">
                             {motel.amenities.join(' • ')}
@@ -535,7 +544,10 @@ const RoutePlanner: React.FC = () => {
                 >
                   <h5>{motel.name}</h5>
                   <p>{motel.rating?.toFixed(1)} rating ({motel.reviewCount} reviews)</p>
-                  <p>${motel.priceEstimate}/night • {motel.detourTime} min detour</p>
+                  <p>
+                    {typeof motel.priceEstimate === 'number' ? `$${motel.priceEstimate}/night • ` : ''}
+                    {motel.detourTime} min detour
+                  </p>
                   {getVerificationBadge(motel.verificationStatus)}
                 </div>
               ))}
@@ -549,7 +561,9 @@ const RoutePlanner: React.FC = () => {
                   onClick={() => setSelectedMotel(motel.id)}
                 >
                   <h5>{motel.name}</h5>
-                  <p>${motel.priceEstimate}/night {getBudgetBadge(motel.budgetFit)}</p>
+                  {typeof motel.priceEstimate === 'number' && (
+                    <p>${motel.priceEstimate}/night {getBudgetBadge(motel.budgetFit)}</p>
+                  )}
                   <p>{motel.rating?.toFixed(1)} rating • {motel.detourTime} min detour</p>
                   {getVerificationBadge(motel.verificationStatus)}
                 </div>

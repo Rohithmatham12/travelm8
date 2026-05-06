@@ -72,7 +72,7 @@ const Dashboard: React.FC = () => {
         </div>
         <div className="route-command-panel">
           <div className="command-panel-header">
-            <span>Live stack</span>
+            <span>Planner modes</span>
             {demoMode && <strong>Demo Mode</strong>}
           </div>
           <div className="command-stat">
@@ -80,10 +80,10 @@ const Dashboard: React.FC = () => {
             <span>Recent trips</span>
           </div>
           <div className="command-list">
-            <span>OpenStreetMap + Leaflet</span>
-            <span>Nominatim geocoding</span>
-            <span>OSRM route estimates</span>
-            <span>ICS calendar export</span>
+            <span>Route Planner: stops along the drive</span>
+            <span>Trip Recommendations: places near the stay</span>
+            <span>Itinerary: scheduled activities and reservations</span>
+            <span>Offline packet and calendar export</span>
           </div>
         </div>
       </div>
@@ -156,7 +156,7 @@ const Dashboard: React.FC = () => {
             <Link to="/trips/new" className="action-card">
               <div className="action-icon">01</div>
               <h3>Plan New Trip</h3>
-              <p>Create a new travel itinerary with AI assistance</p>
+              <p>Create the destination, dates, budget, and preferences for a saved trip.</p>
             </Link>
             
             <Link to="/trips" className="action-card">
@@ -167,14 +167,14 @@ const Dashboard: React.FC = () => {
             
             <Link to="/ai-recommendations" className="action-card">
               <div className="action-icon">03</div>
-              <h3>AI Recommendations</h3>
-              <p>Get personalized travel suggestions powered by AI</p>
+              <h3>Trip Recommendations</h3>
+              <p>Find accommodations, restaurants, and activities near a destination.</p>
             </Link>
 
             <Link to="/route-planner" className="action-card">
               <div className="action-icon">04</div>
               <h3>Route Planner</h3>
-              <p>Build a road-trip route with stops, meals, motels, and calendar export</p>
+              <p>Build drive-corridor stops, meals, motels, and calendar export.</p>
             </Link>
           </div>
         </div>

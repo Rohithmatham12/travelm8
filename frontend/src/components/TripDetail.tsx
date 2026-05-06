@@ -81,7 +81,7 @@ const TripDetail: React.FC = () => {
     const start = new Date(trip.startDate);
     const end = new Date(trip.endDate);
     const diffTime = Math.abs(end.getTime() - start.getTime());
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
   };
 
   if (loading) {
@@ -122,6 +122,9 @@ const TripDetail: React.FC = () => {
             </Link>
             <Link to={`/trips/${trip.tripId}/itinerary`} className="btn btn-secondary">
               Manage Itinerary
+            </Link>
+            <Link to={`/trips/${trip.tripId}/recommendations`} className="btn btn-secondary">
+              Destination Ideas
             </Link>
             <Link to={`/trips/${trip.tripId}/share`} className="btn btn-secondary">
               Share Trip
