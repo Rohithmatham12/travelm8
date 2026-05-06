@@ -252,17 +252,27 @@ function demoApiResponse<T>(endpoint: string, options: RequestInit): ApiResponse
         duration: 7,
         recommendations: {
           accommodations: [
-            { title: 'Hotel Metropolitan Tokyo Marunouchi', description: 'Central stay near rail connections.', price: 210, rating: 4.5 },
+            { title: 'Hotel Metropolitan Tokyo Marunouchi', description: 'Demo lodging example near rail connections.', price: { amount: 210, currency: 'USD', perPerson: false }, rating: 4.5, source: 'demo' },
           ],
           activities: [
-            { title: 'Yanaka walking route', description: 'Low-crowd neighborhood route with food and temples.', price: 20, rating: 4.7 },
+            { title: 'Yanaka walking route', description: 'Demo walking route with food and temples.', price: { amount: 20, currency: 'USD', perPerson: true }, rating: 4.7, source: 'demo' },
           ],
           restaurants: [
-            { title: 'Tsukiji outer market breakfast', description: 'Morning food stop aligned with jet lag-friendly timing.', price: 28, rating: 4.6 },
+            { title: 'Tsukiji outer market breakfast', description: 'Demo morning food stop.', price: { amount: 28, currency: 'USD', perPerson: true }, rating: 4.6, source: 'demo' },
           ],
         },
-        itinerary: [],
-        totalEstimatedCost: 2450,
+        itinerary: [
+          {
+            dayNumber: 1,
+            date: '2026-06-12',
+            activities: [{ title: 'Yanaka walking route', description: 'Demo walking route with food and temples.', price: { amount: 20, currency: 'USD', perPerson: true } }],
+            meals: [{ title: 'Tsukiji outer market breakfast', description: 'Demo morning food stop.', price: { amount: 28, currency: 'USD', perPerson: true } }],
+            accommodation: { title: 'Hotel Metropolitan Tokyo Marunouchi', description: 'Demo lodging example near rail connections.', price: { amount: 210, currency: 'USD', perPerson: false } },
+            estimatedCost: { amount: 258, currency: 'USD' },
+          },
+        ],
+        totalEstimatedCost: { amount: 2450, currency: 'USD' },
+        budgetBreakdown: { accommodation: 1470, food: 392, activities: 280, transport: 308 },
         tips: ['Reserve high-demand restaurants early', 'Group nearby stops by train line'],
       } as T,
     };

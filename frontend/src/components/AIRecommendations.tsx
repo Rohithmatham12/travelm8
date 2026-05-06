@@ -5,7 +5,11 @@ import { post } from '../utils/api';
 interface Recommendation {
   title: string;
   description: string;
-  price: number;
+  price?: {
+    amount: number;
+    currency: string;
+    perPerson?: boolean;
+  };
   rating?: number;
   duration?: number;
   time?: string;
@@ -22,12 +26,21 @@ interface Recommendation {
   reservationUrl?: string;
   openingHours?: string;
   bookingRequired?: boolean;
+  source?: string;
+  verificationNote?: string;
 }
 
 interface ItineraryDay {
-  day: number;
+  dayNumber: number;
   date: string;
   activities: Recommendation[];
+  meals: Recommendation[];
+  accommodation?: Recommendation;
+  transport?: Recommendation[];
+  estimatedCost: {
+    amount: number;
+    currency: string;
+  };
 }
 
 interface RecommendationData {
@@ -39,7 +52,10 @@ interface RecommendationData {
     restaurants: Recommendation[];
   };
   itinerary: ItineraryDay[];
-  totalEstimatedCost: number;
+  totalEstimatedCost: {
+    amount: number;
+    currency: string;
+  };
   budgetBreakdown?: {
     accommodation: number;
     food: number;
@@ -116,11 +132,12 @@ const AIRecommendations: React.FC = () => {
     }
   };
 
-  const formatCurrency = (amount: number, currency: string = 'USD') => {
+  const formatCurrency = (amount: number | { amount: number; currency?: string } | undefined, currency: string = 'USD') => {
+    const normalized = typeof amount === 'object' ? amount.amount : amount;
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency,
-    }).format(amount);
+      currency: typeof amount === 'object' && amount.currency ? amount.currency : currency,
+    }).format(Number.isFinite(normalized) ? normalized! : 0);
   };
 
   const renderStars = (rating: number) => {
@@ -225,7 +242,7 @@ const AIRecommendations: React.FC = () => {
                     </div>
                   )}
                   <div className="recommendation-meta">
-                    <span className="price">{formatCurrency(accommodation.price)}/night</span>
+                    <span className="price">{formatCurrency(accommodation.price)}/night est.</span>
                     {accommodation.rating && (
                       <span className="rating">{renderStars(accommodation.rating)} {accommodation.rating}</span>
                     )}
@@ -272,7 +289,7 @@ const AIRecommendations: React.FC = () => {
                     <div className="hours">🕒 {activity.openingHours}</div>
                   )}
                   <div className="recommendation-meta">
-                    <span className="price">{formatCurrency(activity.price)}</span>
+                    <span className="price">{formatCurrency(activity.price)} est.</span>
                     {activity.duration && (
                       <span className="duration">⏱️ {Math.floor(activity.duration / 60)}h {activity.duration % 60}m</span>
                     )}
@@ -315,7 +332,7 @@ const AIRecommendations: React.FC = () => {
                     <div className="hours">🕒 {restaurant.openingHours}</div>
                   )}
                   <div className="recommendation-meta">
-                    <span className="price">{formatCurrency(restaurant.price)} avg/person</span>
+                    <span className="price">{formatCurrency(restaurant.price)} avg/person est.</span>
                     {restaurant.rating && (
                       <span className="rating">{renderStars(restaurant.rating)} {restaurant.rating}</span>
                     )}
@@ -345,7 +362,7 @@ const AIRecommendations: React.FC = () => {
               {recommendations.itinerary.map((day, index) => (
                 <div key={index} className="itinerary-day">
                   <div className="day-header">
-                    <h4>Day {day.day}</h4>
+                    <h4>Day {day.dayNumber}</h4>
                     <span className="day-date">{new Date(day.date).toLocaleDateString()}</span>
                   </div>
                   <div className="day-activities">
@@ -361,6 +378,26 @@ const AIRecommendations: React.FC = () => {
                         </div>
                       </div>
                     ))}
+                    {day.meals.map((meal, mealIndex) => (
+                      <div key={`meal-${mealIndex}`} className="itinerary-activity">
+                        <div className="activity-time">{mealIndex === 0 ? '12:30 PM' : '7:00 PM'}</div>
+                        <div className="activity-details">
+                          <h5>{meal.title}</h5>
+                          <p>{meal.description}</p>
+                          <span className="activity-price">{formatCurrency(meal.price)}</span>
+                        </div>
+                      </div>
+                    ))}
+                    {day.accommodation && (
+                      <div className="itinerary-activity">
+                        <div className="activity-time">Evening</div>
+                        <div className="activity-details">
+                          <h5>{day.accommodation.title}</h5>
+                          <p>{day.accommodation.description}</p>
+                          <span className="activity-price">{formatCurrency(day.accommodation.price)}</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -521,5 +558,3 @@ const AIRecommendations: React.FC = () => {
 };
 
 export default AIRecommendations;
-
-
