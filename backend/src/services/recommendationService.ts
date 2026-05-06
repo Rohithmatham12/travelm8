@@ -1,435 +1,318 @@
 import { v4 as uuidv4 } from 'uuid';
-import { 
-  RecommendationRequest, 
-  RecommendationResponse, 
-  Recommendation, 
-  ItineraryDay 
+import https from 'https';
+import {
+  RecommendationRequest,
+  RecommendationResponse,
+  Recommendation,
+  ItineraryDay
 } from '../types/recommendation';
 
+interface Coordinates {
+  lat: number;
+  lng: number;
+}
+
+interface OpenDataPlace {
+  name: string;
+  displayName: string;
+  type: string;
+  category: string;
+  coordinates: Coordinates;
+  address?: string;
+  tags: Record<string, any>;
+}
+
+type RecommendationKind = 'accommodation' | 'activity' | 'restaurant' | 'attraction';
+
 export class RecommendationService {
-  private readonly mockData = {
-    accommodations: {
-      budget: [
-        {
-          title: 'Hostel Central',
-          description: 'Clean and comfortable hostel in the city center',
-          category: 'Hostel',
-          tags: ['budget', 'central', 'social'],
-          basePrice: 25
-        },
-        {
-          title: 'Budget Inn',
-          description: 'Simple hotel with basic amenities',
-          category: 'Hotel',
-          tags: ['budget', 'simple', 'clean'],
-          basePrice: 45
-        }
-      ],
-      'mid-range': [
-        {
-          title: 'City Hotel',
-          description: 'Modern hotel with great amenities and location',
-          category: 'Hotel',
-          tags: ['modern', 'central', 'amenities'],
-          basePrice: 120
-        },
-        {
-          title: 'Boutique Hotel',
-          description: 'Charming boutique hotel with unique character',
-          category: 'Boutique',
-          tags: ['boutique', 'charming', 'unique'],
-          basePrice: 150
-        }
-      ],
-      luxury: [
-        {
-          title: 'Grand Resort',
-          description: 'Luxury resort with world-class facilities',
-          category: 'Resort',
-          tags: ['luxury', 'resort', 'spa'],
-          basePrice: 400
-        },
-        {
-          title: 'Five Star Palace',
-          description: 'Historic palace converted to luxury hotel',
-          category: 'Luxury',
-          tags: ['luxury', 'historic', 'palace'],
-          basePrice: 600
-        }
-      ]
-    },
-    activities: [
-      {
-        title: 'City Walking Tour',
-        description: 'Explore the historic city center with a local guide',
-        category: 'Sightseeing',
-        tags: ['sightseeing', 'culture', 'history'],
-        duration: 180,
-        basePrice: 25
-      },
-      {
-        title: 'Museum Visit',
-        description: 'Visit the famous local museum',
-        category: 'Culture',
-        tags: ['culture', 'museum', 'art'],
-        duration: 120,
-        basePrice: 15
-      },
-      {
-        title: 'Food Tour',
-        description: 'Taste local cuisine with a food expert',
-        category: 'Food',
-        tags: ['food', 'local', 'tasting'],
-        duration: 240,
-        basePrice: 60
-      },
-      {
-        title: 'Adventure Park',
-        description: 'Thrilling activities and outdoor adventures',
-        category: 'Adventure',
-        tags: ['adventure', 'outdoor', 'thrilling'],
-        duration: 300,
-        basePrice: 45
-      },
-      {
-        title: 'Spa Day',
-        description: 'Relaxing spa treatment and wellness',
-        category: 'Wellness',
-        tags: ['wellness', 'spa', 'relaxation'],
-        duration: 180,
-        basePrice: 80
-      }
-    ],
-    restaurants: [
-      {
-        title: 'Local Bistro',
-        description: 'Authentic local cuisine in cozy atmosphere',
-        category: 'Local',
-        tags: ['local', 'authentic', 'cozy'],
-        basePrice: 30
-      },
-      {
-        title: 'Fine Dining Restaurant',
-        description: 'Upscale dining with gourmet cuisine',
-        category: 'Fine Dining',
-        tags: ['fine-dining', 'gourmet', 'upscale'],
-        basePrice: 120
-      },
-      {
-        title: 'Street Food Market',
-        description: 'Experience local street food culture',
-        category: 'Street Food',
-        tags: ['street-food', 'local', 'casual'],
-        basePrice: 15
-      }
-    ],
-    attractions: [
-      {
-        title: 'Historic Cathedral',
-        description: 'Magnificent historic cathedral with stunning architecture',
-        category: 'Historic',
-        tags: ['historic', 'architecture', 'religious'],
-        duration: 90,
-        basePrice: 10
-      },
-      {
-        title: 'City Park',
-        description: 'Beautiful park perfect for relaxation',
-        category: 'Nature',
-        tags: ['nature', 'park', 'relaxation'],
-        duration: 120,
-        basePrice: 0
-      },
-      {
-        title: 'Observation Deck',
-        description: 'Panoramic views of the city',
-        category: 'Viewpoint',
-        tags: ['viewpoint', 'panoramic', 'city'],
-        duration: 60,
-        basePrice: 20
-      }
-    ]
-  };
-
   async generateRecommendations(request: RecommendationRequest): Promise<RecommendationResponse> {
-    // Simulate AI processing delay
-    await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
-
     const duration = this.calculateDuration(request.startDate, request.endDate);
-    const budgetLevel = this.determineBudgetLevel(request.budget, request.travelers, duration);
-    
-    // Determine time of day for recommendations
-    const currentHour = new Date().getHours();
-    let timeOfDay = 'any';
-    if (currentHour >= 6 && currentHour < 12) timeOfDay = 'breakfast';
-    else if (currentHour >= 12 && currentHour < 17) timeOfDay = 'lunch';
-    else if (currentHour >= 17 && currentHour < 22) timeOfDay = 'dinner';
-    else timeOfDay = 'lateNight';
-    
+    const destination = request.destination.trim();
+    const coordinates = await this.geocodeDestination(destination);
+    const needsAccommodation = duration > 1 || /hotel|motel|stay|accommodation/i.test(request.preferences.accommodationType || '');
+
+    const [restaurants, attractions, accommodations] = await Promise.all([
+      this.findRecommendations(destination, coordinates, 'restaurant', request, duration),
+      this.findRecommendations(destination, coordinates, 'attraction', request, duration),
+      needsAccommodation
+        ? this.findRecommendations(destination, coordinates, 'accommodation', request, duration)
+        : Promise.resolve([])
+    ]);
+
+    const activities = attractions.slice(0, Math.max(3, Math.min(10, duration * 2)));
+    const transport = this.generateTransportGuidance(destination, duration, request);
     const recommendations = {
-      accommodations: this.generateAccommodations(request, budgetLevel),
-      activities: this.generateActivities(request, duration),
-      restaurants: this.generateRestaurants(request, duration, timeOfDay),
-      attractions: this.generateAttractions(request, duration),
-      transport: this.generateTransport(request, duration),
-      motels: this.generateMotelsByTime(request, timeOfDay)
+      accommodations,
+      activities,
+      restaurants,
+      attractions,
+      transport,
+      motels: needsAccommodation ? accommodations : []
     };
 
-    const itinerary = this.generateItinerary(request, recommendations, duration, timeOfDay);
-    const totalCost = this.calculateTotalCost(recommendations, itinerary, request.travelers);
-    const tips = this.generateTips(request, budgetLevel);
+    const itinerary = this.generateItinerary(request, recommendations, duration);
+    const totalEstimatedCost = this.calculateTotalCost(itinerary);
 
     return {
-      destination: request.destination,
+      destination,
+      duration,
       recommendations,
       itinerary,
-      totalEstimatedCost: totalCost,
-      tips
+      totalEstimatedCost,
+      budgetBreakdown: this.calculateBudgetBreakdown(itinerary),
+      tips: this.generateTips(destination, duration, {
+        restaurants,
+        activities,
+        accommodations,
+        needsAccommodation
+      })
     };
   }
 
   private calculateDuration(startDate: string, endDate: string): number {
     const start = new Date(startDate);
     const end = new Date(endDate);
-    return Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    return Math.max(1, Math.min(days, 30));
   }
 
-  private determineBudgetLevel(budget?: number, travelers?: number, duration?: number): string {
-    if (!budget || !travelers || !duration) return 'mid-range';
-    
-    const dailyBudgetPerPerson = budget / (travelers * duration);
-    
-    if (dailyBudgetPerPerson < 50) return 'budget';
-    if (dailyBudgetPerPerson > 200) return 'luxury';
-    return 'mid-range';
-  }
+  private async geocodeDestination(destination: string): Promise<Coordinates> {
+    const url = new URL('https://nominatim.openstreetmap.org/search');
+    url.searchParams.set('format', 'json');
+    url.searchParams.set('limit', '1');
+    url.searchParams.set('q', destination);
 
-  private generateAccommodations(request: RecommendationRequest, budgetLevel: string): Recommendation[] {
-    const accommodations = this.mockData.accommodations[budgetLevel as keyof typeof this.mockData.accommodations] || 
-                          this.mockData.accommodations['mid-range'];
-    
-    return accommodations.slice(0, 3).map(acc => ({
-      id: uuidv4(),
-      type: 'accommodation' as const,
-      title: acc.title,
-      description: acc.description,
-      location: request.destination,
-      rating: 4.0 + Math.random(),
-      price: {
-        amount: acc.basePrice * (request.travelers || 1),
-        currency: request.currency || 'USD',
-        perPerson: false
-      },
-      category: acc.category,
-      tags: acc.tags,
-      imageUrl: `https://picsum.photos/400/300?random=${Math.floor(Math.random() * 1000)}`
-    }));
-  }
+    const data = await this.fetchJson<Array<{ lat: string; lon: string }>>(url);
+    const first = data[0];
+    if (!first) throw new Error(`Could not find ${destination} in OpenStreetMap`);
 
-  private generateActivities(request: RecommendationRequest, duration: number): Recommendation[] {
-    const relevantActivities = this.mockData.activities.filter(activity => {
-      if (!request.preferences.activityTypes || request.preferences.activityTypes.length === 0) {
-        return true;
-      }
-      return request.preferences.activityTypes.some(type => 
-        activity.tags.includes(type) || activity.category.toLowerCase().includes(type)
-      );
-    });
-
-    return relevantActivities.slice(0, Math.min(8, duration * 2)).map(activity => ({
-      id: uuidv4(),
-      type: 'activity' as const,
-      title: activity.title,
-      description: activity.description,
-      location: request.destination,
-      rating: 4.0 + Math.random(),
-      price: {
-        amount: activity.basePrice * (request.travelers || 1),
-        currency: request.currency || 'USD',
-        perPerson: true
-      },
-      duration: activity.duration,
-      category: activity.category,
-      tags: activity.tags,
-      imageUrl: `https://picsum.photos/400/300?random=${Math.floor(Math.random() * 1000)}`
-    }));
-  }
-
-  private generateRestaurants(request: RecommendationRequest, duration: number, timeOfDay?: string): Recommendation[] {
-    // Enhanced restaurant data with time-based recommendations
-    const timeBasedRestaurants = {
-      breakfast: [
-        { title: 'Sunrise Café', description: 'Perfect morning spot with fresh pastries and coffee', category: 'Café', tags: ['breakfast', 'coffee', 'pastries'], basePrice: 15 },
-        { title: 'Local Breakfast Spot', description: 'Traditional breakfast with local specialties', category: 'Local', tags: ['breakfast', 'local', 'traditional'], basePrice: 20 },
-        { title: 'Brunch House', description: 'All-day brunch with international options', category: 'Brunch', tags: ['breakfast', 'brunch', 'international'], basePrice: 25 }
-      ],
-      lunch: [
-        { title: 'Local Bistro', description: 'Authentic local cuisine in cozy atmosphere', category: 'Local', tags: ['local', 'authentic', 'cozy'], basePrice: 30 },
-        { title: 'Quick Bite', description: 'Fast casual dining perfect for lunch', category: 'Casual', tags: ['lunch', 'casual', 'quick'], basePrice: 20 },
-        { title: 'Market Food Hall', description: 'Variety of food stalls and vendors', category: 'Food Hall', tags: ['lunch', 'variety', 'market'], basePrice: 25 }
-      ],
-      dinner: [
-        { title: 'Fine Dining Restaurant', description: 'Upscale dining with gourmet cuisine', category: 'Fine Dining', tags: ['fine-dining', 'gourmet', 'upscale'], basePrice: 120 },
-        { title: 'Local Restaurant', description: 'Authentic local cuisine for dinner', category: 'Local', tags: ['dinner', 'local', 'authentic'], basePrice: 50 },
-        { title: 'Rooftop Restaurant', description: 'Dinner with stunning city views', category: 'Rooftop', tags: ['dinner', 'rooftop', 'views'], basePrice: 80 }
-      ],
-      lateNight: [
-        { title: 'Street Food Market', description: 'Experience local street food culture', category: 'Street Food', tags: ['street-food', 'local', 'casual'], basePrice: 15 },
-        { title: '24/7 Diner', description: 'Late night dining options', category: 'Diner', tags: ['late-night', 'casual', '24/7'], basePrice: 20 },
-        { title: 'Night Market', description: 'Vibrant night market with local delicacies', category: 'Night Market', tags: ['late-night', 'market', 'local'], basePrice: 18 }
-      ]
+    return {
+      lat: Number(first.lat),
+      lng: Number(first.lon)
     };
+  }
 
-    // Determine time-based restaurants if timeOfDay is provided
-    let restaurantsToUse = this.mockData.restaurants;
-    if (timeOfDay) {
-      const timeKey = timeOfDay.toLowerCase() as keyof typeof timeBasedRestaurants;
-      if (timeBasedRestaurants[timeKey]) {
-        restaurantsToUse = timeBasedRestaurants[timeKey];
+  private async findRecommendations(
+    destination: string,
+    coordinates: Coordinates,
+    kind: RecommendationKind,
+    request: RecommendationRequest,
+    duration: number
+  ): Promise<Recommendation[]> {
+    const places = await this.findOpenDataPlaces(destination, coordinates, kind);
+    const limit = kind === 'accommodation' ? 4 : kind === 'restaurant' ? 6 : Math.min(10, Math.max(4, duration * 2));
+    const recommendations = places
+      .filter((place) => this.isUsefulPlace(place, kind))
+      .slice(0, limit)
+      .map((place) => this.placeToRecommendation(place, kind, request));
+
+    if (recommendations.length > 0) return recommendations;
+
+    return [this.honestFallbackRecommendation(destination, kind, request)];
+  }
+
+  private async findOpenDataPlaces(destination: string, coordinates: Coordinates, kind: RecommendationKind): Promise<OpenDataPlace[]> {
+    const queries = this.queriesForKind(destination, kind);
+    const seen = new Set<string>();
+    const places: OpenDataPlace[] = [];
+
+    for (const query of queries) {
+      try {
+        const url = new URL('https://nominatim.openstreetmap.org/search');
+        const latDelta = 0.22;
+        const lngDelta = 0.22;
+        url.searchParams.set('format', 'json');
+        url.searchParams.set('limit', '8');
+        url.searchParams.set('q', query);
+        url.searchParams.set('bounded', '1');
+        url.searchParams.set('addressdetails', '1');
+        url.searchParams.set('extratags', '1');
+        url.searchParams.set(
+          'viewbox',
+          `${coordinates.lng - lngDelta},${coordinates.lat + latDelta},${coordinates.lng + lngDelta},${coordinates.lat - latDelta}`
+        );
+
+        const results = await this.fetchJson<any[]>(url);
+        for (const item of results) {
+          const place = this.nominatimResultToPlace(item, coordinates, kind);
+          if (!place) continue;
+          const key = `${place.name.toLowerCase()}-${place.coordinates.lat.toFixed(4)}-${place.coordinates.lng.toFixed(4)}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          places.push(place);
+        }
+      } catch (error: any) {
+        console.warn(`Recommendation lookup failed for ${query}: ${error.message || error}`);
       }
     }
 
-    const relevantRestaurants = restaurantsToUse.filter(restaurant => {
-      if (!request.preferences.foodPreferences || request.preferences.foodPreferences.length === 0) {
-        return true;
-      }
-      return request.preferences.foodPreferences.some(pref => 
-        restaurant.tags.includes(pref) || restaurant.category.toLowerCase().includes(pref)
-      );
-    });
-
-    return relevantRestaurants.slice(0, Math.min(6, duration * 2)).map(restaurant => ({
-      id: uuidv4(),
-      type: 'restaurant' as const,
-      title: restaurant.title,
-      description: restaurant.description,
-      location: request.destination,
-      rating: 4.0 + Math.random(),
-      price: {
-        amount: restaurant.basePrice * (request.travelers || 1),
-        currency: request.currency || 'USD',
-        perPerson: true
-      },
-      category: restaurant.category,
-      tags: restaurant.tags,
-      imageUrl: `https://picsum.photos/400/300?random=${Math.floor(Math.random() * 1000)}`,
-      recommendedTime: timeOfDay || 'any'
-    }));
+    return places.sort((a, b) => this.distanceMiles(a.coordinates, coordinates) - this.distanceMiles(b.coordinates, coordinates));
   }
 
-  /**
-   * Generate motel/hotel recommendations based on time of day
-   */
-  private generateMotelsByTime(request: RecommendationRequest, timeOfDay: string): Recommendation[] {
-    const currentHour = new Date().getHours();
-    const isLateNight = currentHour >= 22 || currentHour < 6;
-    
-    const motels = [
-      {
-        title: 'Budget Motel',
-        description: isLateNight ? '24/7 check-in available, perfect for late arrivals' : 'Convenient location near city center',
-        category: 'Motel',
-        tags: ['budget', 'convenient', isLateNight ? '24/7' : 'standard'],
-        basePrice: 45
-      },
-      {
-        title: 'Highway Motel',
-        description: isLateNight ? 'Easy access from highway, late check-in welcome' : 'Great for road trips',
-        category: 'Motel',
-        tags: ['highway', 'road-trip', isLateNight ? 'late-checkin' : 'standard'],
-        basePrice: 55
-      },
-      {
-        title: 'City Motel',
-        description: isLateNight ? 'Downtown location with flexible check-in' : 'Central location',
-        category: 'Motel',
-        tags: ['city', 'central', isLateNight ? 'flexible' : 'standard'],
-        basePrice: 65
-      }
+  private queriesForKind(destination: string, kind: RecommendationKind): string[] {
+    if (kind === 'restaurant') {
+      return [`restaurant ${destination}`, `cafe ${destination}`, `fast food ${destination}`];
+    }
+    if (kind === 'accommodation') {
+      return [`hotel ${destination}`, `motel ${destination}`, `guest house ${destination}`];
+    }
+    return [
+      `park ${destination}`,
+      `museum ${destination}`,
+      `tourist attraction ${destination}`,
+      `temple ${destination}`,
+      `historic ${destination}`
     ];
+  }
 
-    return motels.map(motel => ({
+  private nominatimResultToPlace(item: any, origin: Coordinates, kind: RecommendationKind): OpenDataPlace | null {
+    const name = item.name || String(item.display_name || '').split(',')[0];
+    const coordinates = { lat: Number(item.lat), lng: Number(item.lon) };
+    if (!name || !/[a-z]/i.test(name) || name.trim().length < 3) return null;
+    if (!Number.isFinite(coordinates.lat) || !Number.isFinite(coordinates.lng)) return null;
+    if (this.distanceMiles(coordinates, origin) > 25) return null;
+
+    const tags = item.extratags || {};
+    return {
+      name,
+      displayName: item.display_name || name,
+      type: item.type || item.class || kind,
+      category: this.categoryForPlace(item, kind),
+      coordinates,
+      address: item.display_name,
+      tags
+    };
+  }
+
+  private isUsefulPlace(place: OpenDataPlace, kind: RecommendationKind): boolean {
+    if (/\b(private|street lamp|utility|substation|parking lot|hostel|student|housing|dorm)\b/i.test(place.name)) {
+      return false;
+    }
+    if (kind === 'accommodation' && /hostel|student|housing|dorm|residence/i.test(place.name)) return false;
+    return true;
+  }
+
+  private placeToRecommendation(place: OpenDataPlace, kind: RecommendationKind, request: RecommendationRequest): Recommendation {
+    const price = this.estimatePrice(place, kind, request);
+    const currency = request.currency || 'USD';
+
+    return {
       id: uuidv4(),
-      type: 'accommodation' as const,
-      title: motel.title,
-      description: motel.description,
+      type: kind === 'attraction' ? 'activity' : kind,
+      title: place.name,
+      description: this.describePlace(place, kind),
       location: request.destination,
-      rating: 3.5 + Math.random() * 1.5,
+      rating: undefined,
       price: {
-        amount: motel.basePrice * (request.travelers || 1),
+        amount: price,
+        currency,
+        perPerson: kind !== 'accommodation'
+      },
+      duration: kind === 'restaurant' ? 60 : kind === 'accommodation' ? 480 : 120,
+      category: place.category,
+      tags: ['open-data', place.category.toLowerCase(), 'verify-before-going'],
+      coordinates: place.coordinates,
+      address: place.address,
+      source: 'open-data',
+      verificationNote: 'Found in OpenStreetMap/Nominatim. Verify live hours, availability, and current prices before departure.'
+    };
+  }
+
+  private honestFallbackRecommendation(destination: string, kind: RecommendationKind, request: RecommendationRequest): Recommendation {
+    const currency = request.currency || 'USD';
+    const titleByKind = {
+      restaurant: `Verified food search plan for ${destination}`,
+      accommodation: `Lodging verification plan for ${destination}`,
+      activity: `Local experience search plan for ${destination}`,
+      attraction: `Local experience search plan for ${destination}`
+    };
+    const descriptionByKind = {
+      restaurant: 'Free open-map search did not return confident restaurant matches. Use this as a checklist: search near your stay, verify hours, and save one backup meal option before leaving.',
+      accommodation: 'Free open-map search did not return confident lodging matches. Verify hotel availability and late check-in directly before booking.',
+      activity: 'Free open-map search did not return confident attraction matches. Check local tourism pages, parks, and recent traveler posts before deciding.',
+      attraction: 'Free open-map search did not return confident attraction matches. Check local tourism pages, parks, and recent traveler posts before deciding.'
+    };
+
+    return {
+      id: uuidv4(),
+      type: kind === 'attraction' ? 'activity' : kind,
+      title: titleByKind[kind],
+      description: descriptionByKind[kind],
+      location: destination,
+      price: {
+        amount: kind === 'accommodation' ? this.dailyBudget(request, 0.45) : kind === 'restaurant' ? this.dailyBudget(request, 0.12) : 0,
+        currency,
+        perPerson: kind !== 'accommodation'
+      },
+      duration: kind === 'restaurant' ? 60 : kind === 'accommodation' ? 480 : 90,
+      category: 'Needs verification',
+      tags: ['honest-fallback', 'manual-verification-needed'],
+      source: 'unavailable',
+      verificationNote: 'TravelM8 did not invent a place here because no confident free-data match was found.'
+    };
+  }
+
+  private describePlace(place: OpenDataPlace, kind: RecommendationKind): string {
+    if (kind === 'restaurant') {
+      return `${place.name} appears in open map data near this destination. Price is estimated from category and budget context.`;
+    }
+    if (kind === 'accommodation') {
+      return `${place.name} appears in open map data near this destination. Nightly price is estimated; verify availability and live rate before booking.`;
+    }
+    return `${place.name} appears in open map data near this destination. Verify access, hours, and entry fees before going.`;
+  }
+
+  private categoryForPlace(item: any, kind: RecommendationKind): string {
+    if (kind === 'restaurant') return item.type || 'restaurant';
+    if (kind === 'accommodation') return item.type || 'lodging';
+    return item.type || item.class || 'local place';
+  }
+
+  private estimatePrice(place: OpenDataPlace, kind: RecommendationKind, request: RecommendationRequest): number {
+    const tags = place.tags || {};
+    const fee = String(tags.fee || '').toLowerCase();
+    if (fee === 'no') return 0;
+    if (tags.charge) {
+      const parsed = Number(String(tags.charge).replace(/[^0-9.]/g, ''));
+      if (Number.isFinite(parsed)) return Math.round(parsed);
+    }
+    if (kind === 'restaurant') return Math.max(8, Math.round(this.dailyBudget(request, 0.12)));
+    if (kind === 'accommodation') return Math.max(45, Math.round(this.dailyBudget(request, 0.45)));
+    return fee === 'yes' ? Math.max(5, Math.round(this.dailyBudget(request, 0.06))) : 0;
+  }
+
+  private dailyBudget(request: RecommendationRequest, share: number): number {
+    const duration = this.calculateDuration(request.startDate, request.endDate);
+    const travelers = Math.max(1, request.travelers || 1);
+    const totalBudget = request.budget || travelers * duration * 120;
+    return totalBudget / Math.max(1, duration) * share;
+  }
+
+  private generateTransportGuidance(destination: string, duration: number, request: RecommendationRequest): Recommendation[] {
+    const mode = request.preferences.transportMode || 'any';
+    const cost = mode === 'walking' ? 0 : mode === 'public' ? duration * 8 : mode === 'rental' ? duration * 55 : duration * 25;
+    return [{
+      id: uuidv4(),
+      type: 'transport',
+      title: `${destination} transport plan`,
+      description: 'Estimate only. Check local transit, parking, taxi availability, and travel times before each day.',
+      location: destination,
+      price: {
+        amount: cost,
         currency: request.currency || 'USD',
         perPerson: false
       },
-      category: motel.category,
-      tags: motel.tags,
-      imageUrl: `https://picsum.photos/400/300?random=${Math.floor(Math.random() * 1000)}`,
-      recommendedTime: timeOfDay
-    }));
-  }
-
-  private generateAttractions(request: RecommendationRequest, duration: number): Recommendation[] {
-    return this.mockData.attractions.slice(0, Math.min(5, duration)).map(attraction => ({
-      id: uuidv4(),
-      type: 'attraction' as const,
-      title: attraction.title,
-      description: attraction.description,
-      location: request.destination,
-      rating: 4.0 + Math.random(),
-      price: {
-        amount: attraction.basePrice * (request.travelers || 1),
-        currency: request.currency || 'USD',
-        perPerson: true
-      },
-      duration: attraction.duration,
-      category: attraction.category,
-      tags: attraction.tags,
-      imageUrl: `https://picsum.photos/400/300?random=${Math.floor(Math.random() * 1000)}`
-    }));
-  }
-
-  private generateTransport(request: RecommendationRequest, duration: number): Recommendation[] {
-    const transportOptions = [
-      {
-        title: 'Public Transport Pass',
-        description: 'Unlimited public transport for the duration',
-        category: 'Public',
-        basePrice: 15
-      },
-      {
-        title: 'Car Rental',
-        description: 'Daily car rental with insurance',
-        category: 'Car',
-        basePrice: 50
-      },
-      {
-        title: 'Taxi Service',
-        description: 'On-demand taxi service',
-        category: 'Taxi',
-        basePrice: 25
-      }
-    ];
-
-    return transportOptions.map(transport => ({
-      id: uuidv4(),
-      type: 'transport' as const,
-      title: transport.title,
-      description: transport.description,
-      location: request.destination,
-      price: {
-        amount: transport.basePrice * duration * (request.travelers || 1),
-        currency: request.currency || 'USD',
-        perPerson: false
-      },
-      category: transport.category,
-      tags: [transport.category.toLowerCase(), 'transport']
-    }));
+      category: mode,
+      tags: ['estimated', 'verify-locally'],
+      source: 'estimated',
+      verificationNote: 'Transport prices vary by city and date; this is a planning estimate.'
+    }];
   }
 
   private generateItinerary(
-    request: RecommendationRequest, 
-    recommendations: any, 
-    duration: number,
-    timeOfDay?: string
+    request: RecommendationRequest,
+    recommendations: RecommendationResponse['recommendations'],
+    duration: number
   ): ItineraryDay[] {
     const itinerary: ItineraryDay[] = [];
     const startDate = new Date(request.startDate);
@@ -437,44 +320,26 @@ export class RecommendationService {
     for (let i = 0; i < duration; i++) {
       const currentDate = new Date(startDate);
       currentDate.setDate(startDate.getDate() + i);
-
-      // Determine time-based recommendations for each day
-      const dayHour = (currentDate.getHours() + i * 24) % 24;
-      let dayTimeOfDay = 'any';
-      if (dayHour >= 6 && dayHour < 12) dayTimeOfDay = 'breakfast';
-      else if (dayHour >= 12 && dayHour < 17) dayTimeOfDay = 'lunch';
-      else if (dayHour >= 17 && dayHour < 22) dayTimeOfDay = 'dinner';
-      else dayTimeOfDay = 'lateNight';
-
-      const dayActivities = this.selectRandomItems<Recommendation>(recommendations.activities, 2);
-      
-      // Select time-appropriate restaurants
-      const timeBasedRestaurants = recommendations.restaurants.filter((r: any) => 
-        !r.recommendedTime || r.recommendedTime === dayTimeOfDay || r.recommendedTime === 'any'
-      );
-      const dayMeals = this.selectRandomItems<Recommendation>(
-        timeBasedRestaurants.length > 0 ? timeBasedRestaurants : recommendations.restaurants, 
-        2
-      );
-      
-      const dayAccommodation = i === 0 ? recommendations.accommodations[0] : undefined;
-      const dayTransport = this.selectRandomItems<Recommendation>(recommendations.transport, 1);
-      
-      // Add motel recommendation if late night
-      const dayMotels = dayTimeOfDay === 'lateNight' ? 
-        this.selectRandomItems(recommendations.motels || [], 1) : undefined;
-
-      const dayCost = this.calculateDayCost(dayActivities, dayMeals, dayAccommodation, dayTransport);
+      const activity = recommendations.activities[i % recommendations.activities.length];
+      const secondActivity = recommendations.activities[(i + 1) % recommendations.activities.length];
+      const meals = recommendations.restaurants.length > 0
+        ? [recommendations.restaurants[i % recommendations.restaurants.length]]
+        : [];
+      const accommodation = duration > 1 && recommendations.accommodations.length > 0
+        ? recommendations.accommodations[0]
+        : undefined;
+      const transport = i === 0 ? recommendations.transport : [];
+      const activities = [activity, secondActivity].filter(Boolean);
 
       itinerary.push({
         date: currentDate.toISOString().split('T')[0],
         dayNumber: i + 1,
-        activities: dayActivities,
-        meals: dayMeals,
-        accommodation: dayAccommodation || dayMotels?.[0],
-        transport: dayTransport,
+        activities,
+        meals,
+        accommodation,
+        transport,
         estimatedCost: {
-          amount: dayCost,
+          amount: this.sumRecommendationCosts([...activities, ...meals, ...(accommodation ? [accommodation] : []), ...transport]),
           currency: request.currency || 'USD'
         }
       });
@@ -483,52 +348,92 @@ export class RecommendationService {
     return itinerary;
   }
 
-  private selectRandomItems<T>(items: T[], count: number): T[] {
-    const shuffled = [...items].sort(() => 0.5 - Math.random());
-    return shuffled.slice(0, count);
+  private sumRecommendationCosts(items: Recommendation[]): number {
+    return Math.round(items.reduce((total, item) => total + (item.price?.amount || 0), 0));
   }
 
-  private calculateDayCost(activities: any[], meals: any[], accommodation?: any, transport?: any[]): number {
-    let cost = 0;
-    
-    activities.forEach(activity => cost += activity.price?.amount || 0);
-    meals.forEach(meal => cost += meal.price?.amount || 0);
-    if (accommodation) cost += accommodation.price?.amount || 0;
-    transport?.forEach(t => cost += t.price?.amount || 0);
-    
-    return cost;
-  }
-
-  private calculateTotalCost(recommendations: any, itinerary: ItineraryDay[], travelers: number): { amount: number; currency: string } {
-    let totalCost = 0;
-    
-    itinerary.forEach(day => {
-      totalCost += day.estimatedCost.amount;
-    });
-
+  private calculateTotalCost(itinerary: ItineraryDay[]): { amount: number; currency: string } {
     return {
-      amount: Math.round(totalCost),
-      currency: 'USD'
+      amount: Math.round(itinerary.reduce((total, day) => total + day.estimatedCost.amount, 0)),
+      currency: itinerary[0]?.estimatedCost.currency || 'USD'
     };
   }
 
-  private generateTips(request: RecommendationRequest, budgetLevel: string): string[] {
+  private calculateBudgetBreakdown(itinerary: ItineraryDay[]) {
+    const breakdown = { accommodation: 0, food: 0, activities: 0, transport: 0 };
+    for (const day of itinerary) {
+      breakdown.activities += this.sumRecommendationCosts(day.activities);
+      breakdown.food += this.sumRecommendationCosts(day.meals);
+      breakdown.accommodation += day.accommodation?.price?.amount || 0;
+      breakdown.transport += this.sumRecommendationCosts(day.transport || []);
+    }
+    return breakdown;
+  }
+
+  private generateTips(
+    destination: string,
+    duration: number,
+    context: { restaurants: Recommendation[]; activities: Recommendation[]; accommodations: Recommendation[]; needsAccommodation: boolean }
+  ): string[] {
     const tips = [
-      `Book accommodations in advance for better rates in ${request.destination}`,
-      `Consider purchasing a city pass for discounted attractions`,
-      `Try local transportation to experience the city like a local`,
-      `Pack comfortable walking shoes for exploring`,
-      `Learn a few basic phrases in the local language`
+      `Every recommendation shown for ${destination} is either open-data based or clearly marked as needing verification.`,
+      'OpenStreetMap does not provide guaranteed live hours or live prices, so call or check the map listing before committing.',
+      duration <= 1
+        ? 'This is a short trip, so TravelM8 is prioritizing food, places, and transport instead of unnecessary motel suggestions.'
+        : 'For overnight trips, save one backup lodging option and verify late check-in before departure.',
+      context.restaurants.some((item) => item.source === 'unavailable')
+        ? 'Food data was sparse, so use the fallback checklist instead of trusting invented restaurants.'
+        : 'Save at least one backup restaurant near your stay in case hours change.',
+      context.activities.some((item) => item.source === 'unavailable')
+        ? 'Local experience data was sparse, so check recent blogs or tourism pages for current events.'
+        : 'Prefer places with a visible map location and recent reviews before finalizing the day.'
     ];
 
-    if (budgetLevel === 'budget') {
-      tips.push('Look for free walking tours and free museum days');
-      tips.push('Consider staying in hostels or budget accommodations');
-    } else if (budgetLevel === 'luxury') {
-      tips.push('Book spa treatments and fine dining experiences in advance');
-      tips.push('Consider private tours for a more personalized experience');
+    if (!context.needsAccommodation) {
+      tips.push('No lodging is shown because this appears to be a same-day or short trip.');
     }
 
-    return tips.slice(0, 5);
+    return tips.slice(0, 6);
+  }
+
+  private distanceMiles(origin: Coordinates, destination: Coordinates): number {
+    const toRadians = (value: number) => value * Math.PI / 180;
+    const radiusMiles = 3958.8;
+    const dLat = toRadians(destination.lat - origin.lat);
+    const dLng = toRadians(destination.lng - origin.lng);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRadians(origin.lat)) *
+        Math.cos(toRadians(destination.lat)) *
+        Math.sin(dLng / 2) ** 2;
+    return radiusMiles * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  private fetchJson<T>(url: URL | string): Promise<T> {
+    return new Promise((resolve, reject) => {
+      const request = https.get(url, {
+        headers: {
+          'User-Agent': 'TravelM8 recommendations (https://github.com/Rohithmatham12/travelm8)'
+        }
+      }, (response) => {
+        let body = '';
+        response.on('data', (chunk) => {
+          body += chunk;
+        });
+        response.on('end', () => {
+          if (!response.statusCode || response.statusCode < 200 || response.statusCode >= 300) {
+            reject(new Error(`Request failed with status ${response.statusCode}`));
+            return;
+          }
+          try {
+            resolve(JSON.parse(body) as T);
+          } catch (error) {
+            reject(error);
+          }
+        });
+      });
+      request.on('error', reject);
+      request.setTimeout(10000, () => request.destroy(new Error('Request timed out')));
+    });
   }
 }

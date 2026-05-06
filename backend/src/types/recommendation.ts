@@ -33,6 +33,9 @@ export interface Recommendation {
   tags: string[];
   imageUrl?: string;
   bookingUrl?: string;
+  address?: string;
+  source?: 'open-data' | 'estimated' | 'unavailable';
+  verificationNote?: string;
   coordinates?: {
     lat: number;
     lng: number;
@@ -41,6 +44,7 @@ export interface Recommendation {
 
 export interface RecommendationResponse {
   destination: string;
+  duration: number;
   recommendations: {
     accommodations: Recommendation[];
     activities: Recommendation[];
@@ -53,6 +57,12 @@ export interface RecommendationResponse {
   totalEstimatedCost: {
     amount: number;
     currency: string;
+  };
+  budgetBreakdown?: {
+    accommodation: number;
+    food: number;
+    activities: number;
+    transport: number;
   };
   tips: string[];
 }
@@ -76,7 +86,6 @@ export interface ApiResponse<T = any> {
   error?: string;
   message?: string;
 }
-
 
 
 
