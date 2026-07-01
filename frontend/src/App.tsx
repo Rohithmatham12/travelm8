@@ -29,7 +29,7 @@ function App() {
               <ProtectedRoute>
                 <>
                   <Header />
-                  <main className="main-content">
+                  <main className="main">
                     <Routes>
                       <Route path="/" element={<Navigate to="/dashboard" replace />} />
                       <Route path="/dashboard" element={<Dashboard />} />

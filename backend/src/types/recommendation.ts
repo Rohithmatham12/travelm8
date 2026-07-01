@@ -65,6 +65,12 @@ export interface RecommendationResponse {
     transport: number;
   };
   tips: string[];
+  aiInsights?: {
+    headline: string;
+    bestFor: string[];
+    budgetTip: string;
+    avoidTip: string;
+  };
 }
 
 export interface ItineraryDay {

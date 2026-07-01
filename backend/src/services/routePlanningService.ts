@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import https from 'https';
+import { getRouteInsights } from './aiService';
 import {
   RouteRequest,
   RouteResponse,
@@ -403,16 +404,16 @@ export class RoutePlanningService {
   async planRoute(request: RouteRequest): Promise<RouteResponse> {
     const routeKey = `${request.origin.toLowerCase()}-${request.destination.toLowerCase()}`;
     const routeData = VERIFIED_ROUTES[routeKey];
-    
+
     if (!routeData) {
       return this.generateGenericRoute(request);
     }
-    
+
     const routeSummary = this.buildRouteSummary(request, routeData);
     const stopOptionSets = this.buildStopOptionSets(request, routeData);
     const { topRated, budgetFriendly } = this.categorizeMotels(request);
     const offlineMapPlan = this.buildOfflineMapPlan(request, routeData);
-    
+
     // Build budget object only with defined properties
     const budget = request.budget ? (() => {
       const budgetObj: { motelPerNight?: number; mealBudget?: number } = {};
@@ -424,7 +425,22 @@ export class RoutePlanningService {
       }
       return Object.keys(budgetObj).length > 0 ? budgetObj : undefined;
     })() : undefined;
-    
+
+    // AI insights — non-blocking, fail gracefully
+    let aiInsights;
+    try {
+      aiInsights = await getRouteInsights(
+        request.origin,
+        request.destination,
+        routeData.distance,
+        routeData.driveTime,
+        request.departureTime ?? '08:00',
+        request.travelers
+      );
+    } catch {
+      aiInsights = undefined;
+    }
+
     return {
       inputsRecognized: {
         origin: request.origin,
@@ -437,9 +453,11 @@ export class RoutePlanningService {
       stopOptionSets,
       topRatedMotels: topRated,
       budgetFriendlyMotels: budgetFriendly,
+      destinationHighlights: await this.getDestinationHighlights(request.destination),
       offlineMapPlan,
       calendarExportReady: true,
-      userChoicePrompt: this.generateUserPrompt(request)
+      userChoicePrompt: this.generateUserPrompt(request),
+      aiInsights,
     };
   }
   
@@ -680,8 +698,168 @@ After you make your selections, I'll generate:
         estimatedDownloadSize: `~${Math.max(120, Math.round(estimatedDistance * 1.1))} MB`
       },
       calendarExportReady: false,
+      destinationHighlights: await this.getDestinationHighlights(request.destination, destinationCoords),
       userChoicePrompt: `I estimated this route with free open-data services. Select stop zones to build a timed itinerary, then verify exact businesses before departure.`
     };
+  }
+
+  private async getDestinationHighlights(destination: string, coords?: Coordinates): Promise<RouteStop[]> {
+    try {
+      const destCoords = coords ?? await this.geocodeLocation(destination);
+      return await this.fetchWikipediaAttractions(destCoords, destination);
+    } catch {
+      return [];
+    }
+  }
+
+  private async fetchWikipediaAttractions(coords: Coordinates, destName: string): Promise<RouteStop[]> {
+    const UA = 'TravelM8/1.0 (travelm8app@gmail.com)';
+    const wikiBase = 'https://en.wikipedia.org/w/api.php';
+
+    // Step 1 — try Wikipedia tourist-attraction categories (most accurate)
+    const cityName = destName.replace(/,.*$/, '').trim();
+    const categoryNames = [
+      `Tourist attractions in ${cityName}`,
+      `Visitor attractions in ${cityName}`,
+      `Tourism in ${cityName}`,
+    ];
+
+    interface CatMember { pageid: number; title: string }
+    interface CatResponse { query?: { categorymembers?: CatMember[] } }
+
+    let members: CatMember[] = [];
+    for (const catName of categoryNames) {
+      try {
+        const url = new URL(wikiBase);
+        url.searchParams.set('action', 'query');
+        url.searchParams.set('list', 'categorymembers');
+        url.searchParams.set('cmtitle', `Category:${catName}`);
+        url.searchParams.set('cmlimit', '40');
+        url.searchParams.set('cmtype', 'page');
+        url.searchParams.set('format', 'json');
+        const r = await this.fetchJson<CatResponse>(url, { headers: { 'User-Agent': UA }, timeoutMs: 10000 });
+        const found = r.query?.categorymembers ?? [];
+        if (found.length >= 5) { members = found; break; }
+      } catch { /* try next */ }
+    }
+
+    // Step 2 — fallback: geosearch within 10km (Wikipedia API max)
+    if (members.length < 5) {
+      interface GeoResult { pageid: number; title: string; lat: number; lon: number }
+      interface GeoResponse { query?: { geosearch?: GeoResult[] } }
+      try {
+        const url = new URL(wikiBase);
+        url.searchParams.set('action', 'query');
+        url.searchParams.set('list', 'geosearch');
+        url.searchParams.set('gscoord', `${coords.lat}|${coords.lng}`);
+        url.searchParams.set('gsradius', '10000');
+        url.searchParams.set('gslimit', '50');
+        url.searchParams.set('gsprimary', 'primary');
+        url.searchParams.set('format', 'json');
+        const r = await this.fetchJson<GeoResponse>(url, { headers: { 'User-Agent': UA }, timeoutMs: 10000 });
+        members = (r.query?.geosearch ?? []).map(g => ({ pageid: g.pageid, title: g.title }));
+      } catch { return []; }
+    }
+
+    if (members.length === 0) return [];
+
+    // Step 3 — batch fetch: coordinates + intro extract + pageprops (wikidata item = notability signal)
+    const chunk = members.slice(0, 25);
+    const detailUrl = new URL(wikiBase);
+    detailUrl.searchParams.set('action', 'query');
+    detailUrl.searchParams.set('pageids', chunk.map(m => m.pageid).join('|'));
+    detailUrl.searchParams.set('prop', 'coordinates|extracts|pageprops');
+    detailUrl.searchParams.set('exintro', '1');
+    detailUrl.searchParams.set('explaintext', '1');
+    detailUrl.searchParams.set('exsentences', '3');
+    detailUrl.searchParams.set('ppprop', 'wikibase_item');
+    detailUrl.searchParams.set('format', 'json');
+
+    interface WikiPage {
+      pageid: number; title: string; extract?: string; missing?: string;
+      coordinates?: Array<{ lat: number; lon: number; primary: string }>;
+      pageprops?: { wikibase_item?: string };
+    }
+    interface DetailResponse { query?: { pages?: Record<string, WikiPage> } }
+
+    const detail = await this.fetchJson<DetailResponse>(detailUrl, { headers: { 'User-Agent': UA }, timeoutMs: 12000 });
+    const pages = Object.values(detail.query?.pages ?? {});
+
+    const VISIT_TIMES: Record<string, number> = {
+      museum: 120, park: 90, bridge: 45, beach: 90, landmark: 60, island: 120,
+      monument: 30, historic: 60, theatre: 150, zoo: 180, aquarium: 90,
+      gallery: 60, cathedral: 45, castle: 90, tower: 60, nature_reserve: 120,
+      attraction: 60, district: 90, waterfront: 60
+    };
+
+    const inferCategory = (title: string, extract: string): string => {
+      const t = (title + ' ' + extract.slice(0, 200)).toLowerCase();
+      if (/museum|gallery/.test(t)) return 'museum';
+      if (/national park|state park|nature reserve/.test(t)) return 'nature_reserve';
+      if (/\bpark\b/.test(t)) return 'park';
+      if (/bridge/.test(t)) return 'bridge';
+      if (/beach/.test(t)) return 'beach';
+      if (/island/.test(t)) return 'island';
+      if (/\bzoo\b/.test(t)) return 'zoo';
+      if (/aquarium/.test(t)) return 'aquarium';
+      if (/cathedral|basilica/.test(t)) return 'cathedral';
+      if (/castle|palace|fort/.test(t)) return 'castle';
+      if (/tower/.test(t)) return 'tower';
+      if (/theatre|theater|opera/.test(t)) return 'theatre';
+      if (/wharf|pier|waterfront/.test(t)) return 'waterfront';
+      if (/district|neighborhood|quarter/.test(t)) return 'district';
+      if (/monument|memorial/.test(t)) return 'monument';
+      return 'attraction';
+    };
+
+    const SKIP_RE = /\bdisambiguation\b|\bborn in\b|\bpolitician\b|\b(film|song|album) by\b/i;
+
+    // Sort: pages with wikidata item (= linked to Wikidata = more notable) first
+    pages.sort((a, b) => {
+      const as = (a.pageprops?.wikibase_item ? 2 : 0) + (a.coordinates?.length ? 1 : 0);
+      const bs = (b.pageprops?.wikibase_item ? 2 : 0) + (b.coordinates?.length ? 1 : 0);
+      return bs - as;
+    });
+
+    const seen = new Set<string>();
+    const results: RouteStop[] = [];
+
+    for (const page of pages) {
+      if (page.missing !== undefined || !page.pageid) continue;
+      const extract = page.extract ?? '';
+      if (SKIP_RE.test(extract.slice(0, 200))) continue;
+      if (seen.has(page.title.toLowerCase())) continue;
+      seen.add(page.title.toLowerCase());
+
+      const coord = page.coordinates?.find(c => c.primary === '') ?? page.coordinates?.[0];
+      const lat = coord?.lat ?? coords.lat;
+      const lng = coord?.lon ?? coords.lng;
+
+      const category = inferCategory(page.title, extract);
+      const description = extract.replace(/\n+/g, ' ').slice(0, 280).trim()
+        || `A popular attraction in ${destName}.`;
+
+      // Strip trailing "(City Name)" disambiguation suffix from title
+      const displayName = page.title.replace(/\s*\([^)]+\)$/, '').trim();
+
+      results.push({
+        id: `wiki-${page.pageid}`,
+        name: displayName,
+        category,
+        type: 'poi',
+        description,
+        coordinates: { lat, lng },
+        detourTime: 0,
+        estimatedTimeAtStop: VISIT_TIMES[category] ?? 60,
+        verificationStatus: page.pageprops?.wikibase_item ? 'verified' : 'partially-verified',
+        distanceFromStart: 0,
+        whyRecommended: ['Listed on Wikipedia as a notable attraction'],
+      });
+
+      if (results.length >= 15) break;
+    }
+
+    return results;
   }
 
   private async geocodeLocation(location: string): Promise<Coordinates> {
@@ -1228,7 +1406,7 @@ After you make your selections, I'll generate:
     return radiusMiles * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }
 
-  private fetchJson<T>(url: URL | string, options: { headers?: Record<string, string> } = {}): Promise<T> {
+  private fetchJson<T>(url: URL | string, options: { headers?: Record<string, string>; timeoutMs?: number } = {}): Promise<T> {
     return new Promise((resolve, reject) => {
       const request = https.get(url, { headers: options.headers }, (response) => {
         let body = '';
@@ -1252,12 +1430,43 @@ After you make your selections, I'll generate:
       });
 
       request.on('error', reject);
-      request.setTimeout(10000, () => {
+      request.setTimeout(options.timeoutMs ?? 10000, () => {
         request.destroy(new Error('Request timed out'));
       });
     });
   }
-  
+
+  private fetchPost<T>(urlStr: string, body: string, options: { headers?: Record<string, string>; timeoutMs?: number } = {}): Promise<T> {
+    return new Promise((resolve, reject) => {
+      const url = new URL(urlStr);
+      const postData = Buffer.from(body, 'utf8');
+      const reqOptions = {
+        hostname: url.hostname, port: 443, path: url.pathname,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Content-Length': postData.length,
+          ...options.headers
+        }
+      };
+      const req = https.request(reqOptions, (res) => {
+        let data = '';
+        res.on('data', chunk => { data += chunk; });
+        res.on('end', () => {
+          if (!res.statusCode || res.statusCode < 200 || res.statusCode >= 300) {
+            reject(new Error(`POST failed: ${res.statusCode} — ${data.slice(0, 200)}`));
+            return;
+          }
+          try { resolve(JSON.parse(data) as T); } catch (e) { reject(e); }
+        });
+      });
+      req.on('error', reject);
+      req.setTimeout(options.timeoutMs ?? 15000, () => req.destroy(new Error('POST timed out')));
+      req.write(postData);
+      req.end();
+    });
+  }
+
   private generateGenericStopSets(_request: RouteRequest, routeData: any): StopOptionSet[] {
     return [{
       setId: uuidv4(),

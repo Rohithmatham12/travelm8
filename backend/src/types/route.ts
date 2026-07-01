@@ -96,6 +96,14 @@ export interface CalendarEvent {
   type: 'drive' | 'stop' | 'meal' | 'overnight';
 }
 
+export interface AIRouteInsight {
+  tripSummary: string;
+  fatigueWarning: string | null;
+  lateArrivalNote: string | null;
+  topTip: string;
+  riskLevel: 'low' | 'medium' | 'high';
+}
+
 export interface RouteResponse {
   inputsRecognized: {
     origin: string;
@@ -111,9 +119,11 @@ export interface RouteResponse {
   stopOptionSets: StopOptionSet[];
   topRatedMotels: RouteStop[];
   budgetFriendlyMotels: RouteStop[];
+  destinationHighlights?: RouteStop[];
   offlineMapPlan: OfflineMapPlan;
   calendarExportReady: boolean;
   userChoicePrompt: string;
+  aiInsights?: AIRouteInsight;
 }
 
 export interface SelectedStops {

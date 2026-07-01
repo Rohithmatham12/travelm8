@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import https from 'https';
+import { getDestinationInsight } from './aiService';
 import {
   RecommendationRequest,
   RecommendationResponse,
@@ -78,6 +79,19 @@ export class RecommendationService {
     const itinerary = this.generateItinerary(request, recommendations, duration);
     const totalEstimatedCost = this.calculateTotalCost(itinerary);
 
+    // AI insights — non-blocking, fail gracefully
+    let aiInsights;
+    try {
+      aiInsights = await getDestinationInsight(
+        destination,
+        duration,
+        preferences.budgetLevel ?? 'mid-range',
+        request.travelers
+      );
+    } catch {
+      aiInsights = undefined;
+    }
+
     return {
       destination,
       duration,
@@ -92,7 +106,8 @@ export class RecommendationService {
         needsAccommodation,
         nearbyDayIdeas,
         plannedDays: itinerary.length
-      })
+      }),
+      aiInsights,
     };
   }
 

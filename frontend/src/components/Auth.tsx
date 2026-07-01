@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { register, login, startDemoSession } from '../utils/auth';
-import './Auth.css';
 
 const Auth: React.FC = () => {
   const navigate = useNavigate();
-  const [isLogin, setIsLogin] = useState(true);
+  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -16,132 +15,70 @@ const Auth: React.FC = () => {
     e.preventDefault();
     setError(null);
     setLoading(true);
-
     try {
-      if (isLogin) {
-        await login(email, password);
-      } else {
-        await register(email, password, name);
-      }
+      if (mode === 'signin') await login(email, password);
+      else await register(email, password, name);
       navigate('/dashboard');
     } catch (err: any) {
-      setError(err.message || 'Authentication failed');
+      setError(err.message || 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDemo = () => {
-    startDemoSession();
-    navigate('/dashboard');
-  };
+  const handleDemo = () => { startDemoSession(); navigate('/dashboard'); };
 
   return (
     <div className="auth-page">
-      <section className="auth-intro">
-        <span className="auth-kicker">Route-aware travel copilot</span>
-        <h1>Plan road trips that hold up in the real world.</h1>
-        <p>
-          TravelM8 builds route plans around budget, fatigue, food timing, overnight backups,
-          offline packets, and explainable stop scores using free open-map resources.
-        </p>
-        <div className="auth-proof-grid">
-          <div>
-            <strong>Free stack</strong>
-            <span>OSM, OSRM, Nominatim, Render</span>
-          </div>
-          <div>
-            <strong>Road-first</strong>
-            <span>Stops, meals, motels, safety</span>
-          </div>
-          <div>
-            <strong>Explainable</strong>
-            <span>Budget, detour, risk, confidence</span>
-          </div>
-        </div>
-      </section>
+      <div className="auth-logo">
+        <div className="auth-logo-icon">TM8</div>
+        <span>TravelM8</span>
+      </div>
 
       <div className="auth-card">
-        <div className="auth-card-heading">
-          <span className="brand-mark">TM8</span>
-          <div>
-            <h2>TravelM8</h2>
-            <p className="auth-subtitle">Create an account or preview the product.</p>
-          </div>
-        </div>
+        <h1 className="auth-heading">
+          {mode === 'signin' ? 'Welcome back' : 'Create your account'}
+        </h1>
 
         <div className="auth-tabs">
-          <button
-            type="button"
-            className={isLogin ? 'active' : ''}
-            onClick={() => setIsLogin(true)}
-          >
-            Login
-          </button>
-          <button
-            type="button"
-            className={!isLogin ? 'active' : ''}
-            onClick={() => setIsLogin(false)}
-          >
-            Sign Up
-          </button>
+          <button className={mode === 'signin' ? 'active' : ''} onClick={() => { setMode('signin'); setError(null); }}>Sign In</button>
+          <button className={mode === 'signup' ? 'active' : ''} onClick={() => { setMode('signup'); setError(null); }}>Create Account</button>
         </div>
 
-        {error && <div className="error-message">{error}</div>}
+        {error && <div className="auth-error-box">{error}</div>}
 
-        <form onSubmit={handleSubmit}>
-          {!isLogin && (
-            <div className="form-group">
-              <label htmlFor="name">Name</label>
-              <input
-                id="name"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Your name"
-              />
+        <form onSubmit={handleSubmit} className="auth-form">
+          {mode === 'signup' && (
+            <div className="auth-field">
+              <label>Your name</label>
+              <input type="text" placeholder="Sarah" value={name} onChange={e => setName(e.target.value)} required autoComplete="name" />
             </div>
           )}
-
-          <div className="form-group">
-            <label htmlFor="email">Email</label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="your.email@example.com"
-              required
-            />
+          <div className="auth-field">
+            <label>Email</label>
+            <input type="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} required autoComplete="email" />
           </div>
-
-          <div className="form-group">
-            <label htmlFor="password">Password</label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-              minLength={6}
-            />
+          <div className="auth-field">
+            <label>Password</label>
+            <input type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} />
           </div>
-
-          <button type="submit" className="btn btn-primary" disabled={loading}>
-            {loading ? 'Please wait...' : isLogin ? 'Login' : 'Sign Up'}
+          <button type="submit" className="auth-submit-btn" disabled={loading}>
+            {loading ? 'Please wait...' : mode === 'signin' ? 'Sign In' : 'Create Account'}
           </button>
         </form>
 
-        <div className="demo-panel">
-          <div>
-            <strong>Need to show it fast?</strong>
-            <span>Open a guided sample with trips, route scoring, and calendar export.</span>
-          </div>
-          <button type="button" className="btn btn-demo" onClick={handleDemo}>
-            Try Demo
-          </button>
-        </div>
+        <div className="auth-divider"><span>or</span></div>
+
+        <button className="auth-demo-btn" onClick={handleDemo}>
+          Try the app — no account needed
+        </button>
+
+        <p className="auth-switch-text">
+          {mode === 'signin'
+            ? <><span>No account?</span> <button onClick={() => { setMode('signup'); setError(null); }}>Create one free</button></>
+            : <><span>Have an account?</span> <button onClick={() => { setMode('signin'); setError(null); }}>Sign in</button></>
+          }
+        </p>
       </div>
     </div>
   );

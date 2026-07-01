@@ -43,6 +43,13 @@ interface ItineraryDay {
   };
 }
 
+interface AIInsights {
+  headline: string;
+  bestFor: string[];
+  budgetTip: string;
+  avoidTip: string;
+}
+
 interface RecommendationData {
   destination: string;
   duration: number;
@@ -63,6 +70,7 @@ interface RecommendationData {
     transport: number;
   };
   tips: string[];
+  aiInsights?: AIInsights;
 }
 
 const AIRecommendations: React.FC = () => {
@@ -71,7 +79,7 @@ const AIRecommendations: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [recommendations, setRecommendations] = useState<RecommendationData | null>(null);
   const [formData, setFormData] = useState({
-    destination: 'Tokyo',
+    destination: '',
     duration: 7,
     travelers: 2,
     budget: 5000,
@@ -216,6 +224,30 @@ const AIRecommendations: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {/* AI Destination Insight Banner */}
+        {recommendations.aiInsights && (
+          <div className="ai-insight-banner">
+            <h3>AI Copilot · {recommendations.destination}</h3>
+            <p className="ai-insight-headline">{recommendations.aiInsights.headline}</p>
+            <div className="ai-best-for">
+              {recommendations.aiInsights.bestFor.map((tag, i) => (
+                <span key={i} className="ai-best-chip">{tag}</span>
+              ))}
+            </div>
+            <div className="ai-tips-row">
+              <div className="ai-tip-box">
+                <div className="tip-label">Budget Tip</div>
+                <p>{recommendations.aiInsights.budgetTip}</p>
+              </div>
+              <div className="ai-tip-box">
+                <div className="tip-label avoid">Avoid This</div>
+                <p>{recommendations.aiInsights.avoidTip}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
 
         <div className="recommendations-content">
           {/* Accommodations */}
