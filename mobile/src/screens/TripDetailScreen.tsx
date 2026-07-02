@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity,
+  View, Text, ScrollView, TouchableOpacity, Share,
   StyleSheet, ActivityIndicator, Alert,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -81,6 +81,19 @@ export default function TripDetailScreen({ route, navigation }: Props) {
         },
       },
     ]);
+  };
+
+  const handleShare = async () => {
+    const rqData = trip.routeData?.routeRequest;
+    const message = [
+      `🚗 ${trip.title}`,
+      rqData ? `📅 ${rqData.departureDate} at ${rqData.departureTime || '08:00'}` : '',
+      rqData ? `👥 ${rqData.travelers} traveler${rqData.travelers > 1 ? 's' : ''}` : '',
+      `\nPlanned with TravelM8 — travelm8app.vercel.app`,
+    ].filter(Boolean).join('\n');
+    try {
+      await Share.share({ message, title: trip.title });
+    } catch {}
   };
 
   const handleDelete = () => {
@@ -246,6 +259,10 @@ export default function TripDetailScreen({ route, navigation }: Props) {
         </TouchableOpacity>
       )}
 
+      <TouchableOpacity style={s.shareBtn} onPress={handleShare}>
+        <Text style={s.shareBtnText}>↗ Share Trip</Text>
+      </TouchableOpacity>
+
       {/* Notifications */}
       {hasNotifs && (
         <TouchableOpacity style={s.notifBtn} onPress={handleCancelNotifs}>
@@ -329,5 +346,10 @@ const s = StyleSheet.create({
     paddingVertical: 12, alignItems: 'center',
   },
   deleteBtnText: { fontSize: 14, color: colors.red, fontWeight: '600' },
+  shareBtn: {
+    marginTop: 10, borderWidth: 1, borderColor: '#BAE6FD', borderRadius: 12,
+    paddingVertical: 12, alignItems: 'center', backgroundColor: '#F0F9FF',
+  },
+  shareBtnText: { fontSize: 14, color: '#0369A1', fontWeight: '600' },
   meta: { textAlign: 'center', fontSize: 12, color: colors.text3, marginTop: 12 },
 });
