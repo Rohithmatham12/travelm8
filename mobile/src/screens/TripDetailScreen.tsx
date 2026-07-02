@@ -4,6 +4,7 @@ import {
   StyleSheet, ActivityIndicator, Alert,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import { apiGet, apiDelete } from '../utils/api';
 import { cacheTripDetail, getCachedTripDetail } from '../utils/cache';
 import { isOffline } from '../utils/network';
@@ -11,6 +12,7 @@ import { hasTripNotifications, cancelTripNotifications } from '../utils/notifica
 import OfflineBanner from '../components/OfflineBanner';
 import { Trip, RootStackParamList } from '../types';
 import { colors, common } from '../styles/theme';
+import { geocodeCity } from '../utils/geocode';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TripDetail'>;
 
@@ -45,25 +47,39 @@ export default function TripDetailScreen({ route, navigation }: Props) {
   const [deleting, setDeleting] = useState(false);
   const [offline, setOffline] = useState(false);
   const [hasNotifs, setHasNotifs] = useState(false);
+  const [mapCoords, setMapCoords] = useState<{
+    origin: { lat: number; lon: number } | null;
+    dest: { lat: number; lon: number } | null;
+  } | null>(null);
 
   const load = useCallback(async () => {
     const off = await isOffline();
     setOffline(off);
+    let loadedTrip: Trip | null = null;
     if (off) {
       const cached = await getCachedTripDetail(tripId);
-      if (cached) setTrip(cached);
+      if (cached) { setTrip(cached); loadedTrip = cached; }
     } else {
       const res = await apiGet<Trip>(`/trips/${tripId}`);
       if (res.success && res.data) {
         setTrip(res.data);
+        loadedTrip = res.data;
         await cacheTripDetail(res.data);
       } else {
         const cached = await getCachedTripDetail(tripId);
-        if (cached) { setTrip(cached); setOffline(true); }
+        if (cached) { setTrip(cached); setOffline(true); loadedTrip = cached; }
       }
     }
     setLoading(false);
     setHasNotifs(await hasTripNotifications(tripId));
+    const rqData = loadedTrip?.routeData?.routeRequest;
+    if (rqData?.origin && rqData?.destination) {
+      const [o, d] = await Promise.all([
+        geocodeCity(rqData.origin),
+        geocodeCity(rqData.destination),
+      ]);
+      setMapCoords({ origin: o, dest: d });
+    }
   }, [tripId]);
 
   useEffect(() => {
@@ -84,6 +100,7 @@ export default function TripDetailScreen({ route, navigation }: Props) {
   };
 
   const handleShare = async () => {
+    if (!trip) return;
     const rqData = trip.routeData?.routeRequest;
     const message = [
       `🚗 ${trip.title}`,
@@ -170,6 +187,30 @@ export default function TripDetailScreen({ route, navigation }: Props) {
           )}
         </View>
       )}
+
+      {/* Map View */}
+      {mapCoords && (mapCoords.origin || mapCoords.dest) && (() => {
+        const o = mapCoords.origin;
+        const d = mapCoords.dest;
+        const midLat = o && d ? (o.lat + d.lat) / 2 : (o?.lat ?? d!.lat);
+        const midLon = o && d ? (o.lon + d.lon) / 2 : (o?.lon ?? d!.lon);
+        const latDelta = o && d ? Math.abs(o.lat - d.lat) * 1.4 + 0.5 : 2;
+        const lonDelta = o && d ? Math.abs(o.lon - d.lon) * 1.4 + 0.5 : 2;
+        return (
+          <View style={{ height: 180, borderRadius: 14, overflow: 'hidden', marginBottom: 12 }}>
+            <MapView
+              style={{ flex: 1 }}
+              provider={PROVIDER_DEFAULT}
+              initialRegion={{ latitude: midLat, longitude: midLon, latitudeDelta: latDelta, longitudeDelta: lonDelta }}
+              scrollEnabled={false}
+              zoomEnabled={false}
+            >
+              {o && <Marker coordinate={{ latitude: o.lat, longitude: o.lon }} title="Start" pinColor="#F97316" />}
+              {d && <Marker coordinate={{ latitude: d.lat, longitude: d.lon }} title="Destination" pinColor="#0EA5E9" />}
+            </MapView>
+          </View>
+        );
+      })()}
 
       {/* AI Panel */}
       {ai && (
