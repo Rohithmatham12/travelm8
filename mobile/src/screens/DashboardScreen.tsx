@@ -3,6 +3,7 @@ import {
   View, Text, TextInput, TouchableOpacity, FlatList,
   StyleSheet, RefreshControl, Alert,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { apiGet, apiDelete } from '../utils/api';
 import { getStoredUser, clearAuth } from '../utils/auth';
@@ -58,11 +59,13 @@ export default function DashboardScreen({ navigation }: Props) {
   useEffect(() => { loadData(); }, [loadData]);
 
   const handleSignOut = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     await clearAuth();
     navigation.replace('Auth');
   };
 
   const handleSearch = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (search.trim()) navigation.navigate('RoutePlanner');
   };
 
@@ -77,6 +80,11 @@ export default function DashboardScreen({ navigation }: Props) {
         },
       },
     ]);
+  };
+
+  const handlePlanRoute = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.navigate('RoutePlanner');
   };
 
   if (loading) {
@@ -124,14 +132,14 @@ export default function DashboardScreen({ navigation }: Props) {
               onSubmitEditing={handleSearch}
               returnKeyType="search"
             />
-            <TouchableOpacity style={[s.searchBtn, { backgroundColor: c.orange }]} onPress={() => navigation.navigate('RoutePlanner')}>
+            <TouchableOpacity style={[s.searchBtn, { backgroundColor: c.orange }]} onPress={handleSearch}>
               <Text style={s.searchBtnText}>Plan →</Text>
             </TouchableOpacity>
           </View>
 
           {/* Quick actions */}
           <View style={s.actions}>
-            <TouchableOpacity style={[s.actionBtn, { backgroundColor: c.card, borderColor: c.border }]} onPress={() => navigation.navigate('RoutePlanner')}>
+            <TouchableOpacity style={[s.actionBtn, { backgroundColor: c.card, borderColor: c.border }]} onPress={handlePlanRoute}>
               <Text style={s.actionIcon}>🗺️</Text>
               <Text style={[s.actionLabel, { color: c.text2 }]}>Plan Route</Text>
             </TouchableOpacity>

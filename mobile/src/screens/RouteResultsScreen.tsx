@@ -3,6 +3,7 @@ import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   ActivityIndicator, Alert,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { apiPost } from '../utils/api';
 import { scheduleTripNotifications } from '../utils/notifications';
@@ -53,6 +54,7 @@ export default function RouteResultsScreen({ route, navigation }: Props) {
   };
 
   const handleSave = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSaving(true);
     try {
       const res = await apiPost<any>('/trips/save-route', {
@@ -86,6 +88,7 @@ export default function RouteResultsScreen({ route, navigation }: Props) {
   };
 
   const handleFinalize = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const pois = Object.values(selectedPois).filter(Boolean);
     const rests = Object.values(selectedRests).filter(Boolean);
     if (!pois.length && !rests.length && !selectedMotel) {

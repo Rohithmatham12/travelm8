@@ -3,6 +3,7 @@ import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, Alert,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { apiPost } from '../utils/api';
 import { setToken, setStoredUser } from '../utils/auth';
@@ -22,6 +23,7 @@ export default function AuthScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(false);
 
   const submit = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (!email.trim() || !password.trim()) {
       Alert.alert('Missing fields', 'Email and password are required.');
       return;

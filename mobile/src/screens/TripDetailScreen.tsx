@@ -3,6 +3,7 @@ import {
   View, Text, ScrollView, TouchableOpacity, Share,
   StyleSheet, ActivityIndicator, Alert,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import { apiGet, apiDelete } from '../utils/api';
@@ -107,6 +108,7 @@ export default function TripDetailScreen({ route, navigation }: Props) {
   };
 
   const handleShare = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (!trip) return;
     const rqData = trip.routeData?.routeRequest;
     const message = [
@@ -121,6 +123,7 @@ export default function TripDetailScreen({ route, navigation }: Props) {
   };
 
   const handleDelete = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Alert.alert('Delete trip?', 'This cannot be undone.', [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -298,7 +301,10 @@ export default function TripDetailScreen({ route, navigation }: Props) {
       {rq && (
         <TouchableOpacity
           style={[s.replanBtn, { backgroundColor: c.orange }]}
-          onPress={() => navigation.navigate('RoutePlanner', { routeRequest: rq })}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            navigation.navigate('RoutePlanner', { routeRequest: rq });
+          }}
         >
           <Text style={s.replanBtnText}>↺ Re-plan This Route</Text>
         </TouchableOpacity>
