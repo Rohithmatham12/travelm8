@@ -11,7 +11,7 @@ import { hasTripNotifications, cancelTripNotifications } from '../utils/notifica
 import OfflineBanner from '../components/OfflineBanner';
 import SkeletonCard from '../components/SkeletonCard';
 import { Trip, RootStackParamList } from '../types';
-import { colors, common } from '../styles/theme';
+import { useTheme, makeCommon } from '../styles/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TripDetail'>;
 
@@ -30,16 +30,19 @@ const riskColors: Record<string, { bg: string; text: string }> = {
   high: { bg: '#FEE2E2', text: '#DC2626' },
 };
 
-const eventDotColor: Record<string, string> = {
-  drive: colors.sky, stop: colors.orange, meal: colors.green,
-  overnight: colors.purple, activity: '#7C3AED',
-};
-
 const eventIcon: Record<string, string> = {
   drive: '🚗', stop: '📍', meal: '🍽', overnight: '🛏', activity: '🏛',
 };
 
 export default function TripDetailScreen({ route, navigation }: Props) {
+  const c = useTheme();
+  const common = makeCommon(c);
+
+  const eventDotColor: Record<string, string> = {
+    drive: c.sky, stop: c.orange, meal: c.green,
+    overnight: c.purple, activity: '#7C3AED',
+  };
+
   const { tripId } = route.params;
   const [trip, setTrip] = useState<Trip | null>(null);
   const [loading, setLoading] = useState(true);
@@ -100,7 +103,7 @@ export default function TripDetailScreen({ route, navigation }: Props) {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#FAFAF9', padding: 20 }}>
+      <View style={{ flex: 1, backgroundColor: c.bg, padding: 20 }}>
         <SkeletonCard />
       </View>
     );
@@ -108,10 +111,10 @@ export default function TripDetailScreen({ route, navigation }: Props) {
 
   if (!trip) {
     return (
-      <View style={s.center}>
-        <Text style={s.errorText}>Trip not found</Text>
+      <View style={[s.center, { backgroundColor: c.bg }]}>
+        <Text style={[s.errorText, { color: c.text3 }]}>Trip not found</Text>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={s.backLink}>← Go back</Text>
+          <Text style={[s.backLink, { color: c.orange }]}>← Go back</Text>
         </TouchableOpacity>
       </View>
     );
@@ -127,10 +130,10 @@ export default function TripDetailScreen({ route, navigation }: Props) {
   return (
     <View style={{ flex: 1 }}>
     {offline && <OfflineBanner />}
-    <ScrollView style={s.root} contentContainerStyle={s.content}>
+    <ScrollView style={[s.root, { backgroundColor: c.bg }]} contentContainerStyle={s.content}>
       {/* Header */}
-      <Text style={s.title}>{trip.title}</Text>
-      <Text style={s.subtitle}>
+      <Text style={[s.title, { color: c.text1 }]}>{trip.title}</Text>
+      <Text style={[s.subtitle, { color: c.text3 }]}>
         {rq
           ? `${fmtDate(rq.departureDate)} · ${rq.travelers} traveler${rq.travelers > 1 ? 's' : ''}`
           : fmtDate(trip.startDate)
@@ -139,22 +142,22 @@ export default function TripDetailScreen({ route, navigation }: Props) {
 
       {/* Route stats bar */}
       {rs && (
-        <View style={s.routeBar}>
+        <View style={[s.routeBar, { backgroundColor: c.card, borderColor: c.border }]}>
           <View style={s.routeStat}>
-            <Text style={s.routeVal}>{rs.totalDistance}</Text>
-            <Text style={s.routeLbl}>miles</Text>
+            <Text style={[s.routeVal, { color: c.text1 }]}>{rs.totalDistance}</Text>
+            <Text style={[s.routeLbl, { color: c.text3 }]}>miles</Text>
           </View>
-          <View style={s.routeDivider} />
+          <View style={[s.routeDivider, { backgroundColor: c.border }]} />
           <View style={s.routeStat}>
-            <Text style={s.routeVal}>{fmtMins(rs.estimatedDriveTime)}</Text>
-            <Text style={s.routeLbl}>drive time</Text>
+            <Text style={[s.routeVal, { color: c.text1 }]}>{fmtMins(rs.estimatedDriveTime)}</Text>
+            <Text style={[s.routeLbl, { color: c.text3 }]}>drive time</Text>
           </View>
           {rs.majorCities?.length > 0 && (
             <>
-              <View style={s.routeDivider} />
+              <View style={[s.routeDivider, { backgroundColor: c.border }]} />
               <View style={[s.routeStat, { flex: 1 }]}>
-                <Text style={s.routeLbl}>via</Text>
-                <Text style={[s.routeVal, { fontSize: 14 }]} numberOfLines={1}>
+                <Text style={[s.routeLbl, { color: c.text3 }]}>via</Text>
+                <Text style={[s.routeVal, { fontSize: 14, color: c.text1 }]} numberOfLines={1}>
                   {rs.majorCities.slice(0, 2).join(', ')}
                 </Text>
               </View>
@@ -168,8 +171,8 @@ export default function TripDetailScreen({ route, navigation }: Props) {
         <View style={[common.card, { marginBottom: 12 }]}>
           <View style={s.aiHeader}>
             <View style={s.aiTitleRow}>
-              <View style={s.aiChip}><Text style={s.aiChipText}>AI</Text></View>
-              <Text style={s.aiTitle}>Copilot Analysis</Text>
+              <View style={[s.aiChip, { backgroundColor: c.orange }]}><Text style={s.aiChipText}>AI</Text></View>
+              <Text style={[s.aiTitle, { color: c.text1 }]}>Copilot Analysis</Text>
             </View>
             <View style={[s.riskBadge, { backgroundColor: riskColors[ai.riskLevel]?.bg }]}>
               <Text style={[s.riskText, { color: riskColors[ai.riskLevel]?.text }]}>
@@ -177,7 +180,7 @@ export default function TripDetailScreen({ route, navigation }: Props) {
               </Text>
             </View>
           </View>
-          <Text style={s.aiSummary}>{ai.tripSummary}</Text>
+          <Text style={[s.aiSummary, { color: c.text2 }]}>{ai.tripSummary}</Text>
           {ai.fatigueWarning && (
             <View style={s.aiAlert}>
               <Text style={s.aiAlertText}>⚠️ {ai.fatigueWarning}</Text>
@@ -190,8 +193,8 @@ export default function TripDetailScreen({ route, navigation }: Props) {
           )}
           {ai.topTip && (
             <View style={s.aiTip}>
-              <Text style={s.aiTipLabel}>TOP TIP</Text>
-              <Text style={s.aiTipText}>{ai.topTip}</Text>
+              <Text style={[s.aiTipLabel, { color: c.sky }]}>TOP TIP</Text>
+              <Text style={[s.aiTipText, { color: c.text3 }]}>{ai.topTip}</Text>
             </View>
           )}
         </View>
@@ -201,14 +204,14 @@ export default function TripDetailScreen({ route, navigation }: Props) {
       {fi?.totalEstimatedCost && (
         <View style={[common.card, { marginBottom: 12 }]}>
           <View style={s.costHeader}>
-            <Text style={s.costLabel}>Total Estimated Cost</Text>
-            <Text style={s.costAmount}>${fi.totalEstimatedCost.amount}</Text>
+            <Text style={[s.costLabel, { color: c.text2 }]}>Total Estimated Cost</Text>
+            <Text style={[s.costAmount, { color: c.text1 }]}>${fi.totalEstimatedCost.amount}</Text>
           </View>
           <View style={s.costBreakdown}>
-            {fi.totalEstimatedCost.breakdown.motels > 0 && <Text style={s.costChip}>🛏 ${fi.totalEstimatedCost.breakdown.motels}</Text>}
-            {fi.totalEstimatedCost.breakdown.meals > 0 && <Text style={s.costChip}>🍽 ${fi.totalEstimatedCost.breakdown.meals}</Text>}
-            {fi.totalEstimatedCost.breakdown.activities > 0 && <Text style={s.costChip}>🏛 ${fi.totalEstimatedCost.breakdown.activities}</Text>}
-            {fi.totalEstimatedCost.breakdown.gas > 0 && <Text style={s.costChip}>⛽ ${fi.totalEstimatedCost.breakdown.gas}</Text>}
+            {fi.totalEstimatedCost.breakdown.motels > 0 && <Text style={[s.costChip, { color: c.text3, backgroundColor: c.bgMuted, borderColor: c.border }]}>🛏 ${fi.totalEstimatedCost.breakdown.motels}</Text>}
+            {fi.totalEstimatedCost.breakdown.meals > 0 && <Text style={[s.costChip, { color: c.text3, backgroundColor: c.bgMuted, borderColor: c.border }]}>🍽 ${fi.totalEstimatedCost.breakdown.meals}</Text>}
+            {fi.totalEstimatedCost.breakdown.activities > 0 && <Text style={[s.costChip, { color: c.text3, backgroundColor: c.bgMuted, borderColor: c.border }]}>🏛 ${fi.totalEstimatedCost.breakdown.activities}</Text>}
+            {fi.totalEstimatedCost.breakdown.gas > 0 && <Text style={[s.costChip, { color: c.text3, backgroundColor: c.bgMuted, borderColor: c.border }]}>⛽ ${fi.totalEstimatedCost.breakdown.gas}</Text>}
           </View>
         </View>
       )}
@@ -219,15 +222,15 @@ export default function TripDetailScreen({ route, navigation }: Props) {
           <Text style={common.sectionTitle}>Itinerary</Text>
           {fi.calendarEvents.map((ev: any, i: number) => (
             <View key={ev.id} style={s.event}>
-              <Text style={s.eventTime}>{fmtTime(ev.startTime)}</Text>
+              <Text style={[s.eventTime, { color: c.text3 }]}>{fmtTime(ev.startTime)}</Text>
               <View style={s.eventTrack}>
-                <View style={[s.eventDot, { backgroundColor: eventDotColor[ev.type] || colors.border }]} />
-                {i < fi.calendarEvents.length - 1 && <View style={s.eventLine} />}
+                <View style={[s.eventDot, { backgroundColor: eventDotColor[ev.type] || c.border }]} />
+                {i < fi.calendarEvents.length - 1 && <View style={[s.eventLine, { backgroundColor: c.border }]} />}
               </View>
               <View style={s.eventBody}>
-                <Text style={s.eventTitle}>{eventIcon[ev.type] || '📍'} {ev.title}</Text>
-                {ev.description ? <Text style={s.eventDesc} numberOfLines={2}>{ev.description}</Text> : null}
-                {ev.location ? <Text style={s.eventLoc}>📍 {ev.location}</Text> : null}
+                <Text style={[s.eventTitle, { color: c.text1 }]}>{eventIcon[ev.type] || '📍'} {ev.title}</Text>
+                {ev.description ? <Text style={[s.eventDesc, { color: c.text3 }]} numberOfLines={2}>{ev.description}</Text> : null}
+                {ev.location ? <Text style={[s.eventLoc, { color: c.sky }]}>📍 {ev.location}</Text> : null}
               </View>
             </View>
           ))}
@@ -237,14 +240,14 @@ export default function TripDetailScreen({ route, navigation }: Props) {
       {/* No route data fallback */}
       {!rd && (
         <View style={[common.card, { alignItems: 'center', paddingVertical: 24 }]}>
-          <Text style={{ fontSize: 13, color: colors.text3 }}>No route data saved with this trip.</Text>
+          <Text style={{ fontSize: 13, color: c.text3 }}>No route data saved with this trip.</Text>
         </View>
       )}
 
       {/* Re-plan */}
       {rq && (
         <TouchableOpacity
-          style={s.replanBtn}
+          style={[s.replanBtn, { backgroundColor: c.orange }]}
           onPress={() => navigation.navigate('RoutePlanner', { routeRequest: rq })}
         >
           <Text style={s.replanBtnText}>↺ Re-plan This Route</Text>
@@ -259,68 +262,68 @@ export default function TripDetailScreen({ route, navigation }: Props) {
       )}
 
       {/* Delete */}
-      <TouchableOpacity style={s.deleteBtn} onPress={handleDelete} disabled={deleting}>
+      <TouchableOpacity style={[s.deleteBtn, { borderColor: c.border }]} onPress={handleDelete} disabled={deleting}>
         {deleting
-          ? <ActivityIndicator color={colors.red} size="small" />
-          : <Text style={s.deleteBtnText}>🗑 Delete Trip</Text>
+          ? <ActivityIndicator color={c.red} size="small" />
+          : <Text style={[s.deleteBtnText, { color: c.red }]}>🗑 Delete Trip</Text>
         }
       </TouchableOpacity>
 
-      <Text style={s.meta}>Saved {fmtDate(trip.createdAt)}</Text>
+      <Text style={[s.meta, { color: c.text3 }]}>Saved {fmtDate(trip.createdAt)}</Text>
     </ScrollView>
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
+  root: { flex: 1 },
   content: { padding: 20, paddingBottom: 48 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.bg },
-  errorText: { fontSize: 16, color: colors.text3, marginBottom: 12 },
-  backLink: { fontSize: 14, color: colors.orange },
-  title: { fontSize: 22, fontWeight: '800', color: colors.text1, marginBottom: 4 },
-  subtitle: { fontSize: 14, color: colors.text3, marginBottom: 16 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  errorText: { fontSize: 16, marginBottom: 12 },
+  backLink: { fontSize: 14 },
+  title: { fontSize: 22, fontWeight: '800', marginBottom: 4 },
+  subtitle: { fontSize: 14, marginBottom: 16 },
   routeBar: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
+    borderWidth: 1,
     borderRadius: 14, padding: 16, marginBottom: 12, gap: 12,
   },
   routeStat: { flexDirection: 'column', gap: 2 },
-  routeVal: { fontSize: 18, fontWeight: '700', color: colors.text1 },
-  routeLbl: { fontSize: 11, color: colors.text3, textTransform: 'uppercase', letterSpacing: 0.4 },
-  routeDivider: { width: 1, height: 32, backgroundColor: colors.border },
+  routeVal: { fontSize: 18, fontWeight: '700' },
+  routeLbl: { fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.4 },
+  routeDivider: { width: 1, height: 32 },
   aiHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   aiTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  aiChip: { backgroundColor: colors.orange, borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2 },
+  aiChip: { borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2 },
   aiChipText: { color: '#fff', fontSize: 10, fontWeight: '900' },
-  aiTitle: { fontSize: 15, fontWeight: '700', color: colors.text1 },
+  aiTitle: { fontSize: 15, fontWeight: '700' },
   riskBadge: { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3 },
   riskText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
-  aiSummary: { fontSize: 14, color: colors.text2, lineHeight: 20, marginBottom: 10 },
+  aiSummary: { fontSize: 14, lineHeight: 20, marginBottom: 10 },
   aiAlert: { backgroundColor: '#FFFBEB', borderRadius: 8, padding: 10, marginBottom: 8 },
   aiAlertText: { fontSize: 13, color: '#92400E', lineHeight: 18 },
   aiTip: { flexDirection: 'row', gap: 8, backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#BFDBFE', borderRadius: 8, padding: 10 },
-  aiTipLabel: { fontSize: 10, fontWeight: '800', color: colors.sky, letterSpacing: 0.5 },
-  aiTipText: { flex: 1, fontSize: 13, color: colors.text3, lineHeight: 18 },
+  aiTipLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
+  aiTipText: { flex: 1, fontSize: 13, lineHeight: 18 },
   costHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  costLabel: { fontSize: 14, fontWeight: '600', color: colors.text2 },
-  costAmount: { fontSize: 20, fontWeight: '800', color: colors.text1 },
+  costLabel: { fontSize: 14, fontWeight: '600' },
+  costAmount: { fontSize: 20, fontWeight: '800' },
   costBreakdown: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   costChip: {
-    fontSize: 12, color: colors.text3, backgroundColor: colors.bgMuted,
-    borderWidth: 1, borderColor: colors.border, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3,
+    fontSize: 12,
+    borderWidth: 1, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3,
   },
   event: { flexDirection: 'row', gap: 10, marginBottom: 0 },
-  eventTime: { width: 52, fontSize: 12, fontWeight: '600', color: colors.text3, paddingTop: 2, textAlign: 'right' },
+  eventTime: { width: 52, fontSize: 12, fontWeight: '600', paddingTop: 2, textAlign: 'right' },
   eventTrack: { alignItems: 'center', width: 14 },
   eventDot: { width: 10, height: 10, borderRadius: 5, marginTop: 3 },
-  eventLine: { flex: 1, width: 2, backgroundColor: colors.border, marginVertical: 4, minHeight: 20 },
+  eventLine: { flex: 1, width: 2, marginVertical: 4, minHeight: 20 },
   eventBody: { flex: 1, paddingBottom: 16 },
-  eventTitle: { fontSize: 14, fontWeight: '600', color: colors.text1, marginBottom: 3 },
-  eventDesc: { fontSize: 13, color: colors.text3, lineHeight: 18, marginBottom: 3 },
-  eventLoc: { fontSize: 12, color: colors.sky },
+  eventTitle: { fontSize: 14, fontWeight: '600', marginBottom: 3 },
+  eventDesc: { fontSize: 13, lineHeight: 18, marginBottom: 3 },
+  eventLoc: { fontSize: 12 },
   replanBtn: {
-    marginTop: 24, backgroundColor: colors.orange, borderRadius: 12,
+    marginTop: 24, borderRadius: 12,
     paddingVertical: 14, alignItems: 'center',
   },
   replanBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
@@ -330,9 +333,9 @@ const s = StyleSheet.create({
   },
   notifBtnText: { fontSize: 14, color: '#C2410C', fontWeight: '600' },
   deleteBtn: {
-    marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 12,
+    marginTop: 10, borderWidth: 1, borderRadius: 12,
     paddingVertical: 12, alignItems: 'center',
   },
-  deleteBtnText: { fontSize: 14, color: colors.red, fontWeight: '600' },
-  meta: { textAlign: 'center', fontSize: 12, color: colors.text3, marginTop: 12 },
+  deleteBtnText: { fontSize: 14, fontWeight: '600' },
+  meta: { textAlign: 'center', fontSize: 12, marginTop: 12 },
 });

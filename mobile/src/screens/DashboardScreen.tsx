@@ -11,7 +11,7 @@ import { isOffline } from '../utils/network';
 import OfflineBanner from '../components/OfflineBanner';
 import SkeletonCard from '../components/SkeletonCard';
 import { Trip, RootStackParamList } from '../types';
-import { colors, common } from '../styles/theme';
+import { useTheme, makeCommon } from '../styles/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Dashboard'>;
 
@@ -19,6 +19,9 @@ const fmtDate = (d: string) =>
   new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
 export default function DashboardScreen({ navigation }: Props) {
+  const c = useTheme();
+  const common = makeCommon(c);
+
   const [user, setUser] = useState<any>(null);
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,7 +78,7 @@ export default function DashboardScreen({ navigation }: Props) {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#FAFAF9', padding: 20 }}>
+      <View style={{ flex: 1, backgroundColor: c.bg, padding: 20 }}>
         <SkeletonCard /><SkeletonCard /><SkeletonCard />
       </View>
     );
@@ -87,47 +90,47 @@ export default function DashboardScreen({ navigation }: Props) {
     <View style={{ flex: 1 }}>
     {offline && <OfflineBanner />}
     <FlatList
-      style={s.root}
+      style={[s.root, { backgroundColor: c.bg }]}
       contentContainerStyle={s.content}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadData(); }} tintColor={colors.orange} />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadData(); }} tintColor={c.orange} />}
       ListHeaderComponent={
         <>
           {/* Header */}
           <View style={s.header}>
             <View>
-              <Text style={s.greeting}>Hey {firstName} 👋</Text>
-              <Text style={s.title}>Where are you{'\n'}driving next?</Text>
+              <Text style={[s.greeting, { color: c.text3 }]}>Hey {firstName} 👋</Text>
+              <Text style={[s.title, { color: c.text1 }]}>Where are you{'\n'}driving next?</Text>
             </View>
             <TouchableOpacity onPress={handleSignOut} style={s.signOutBtn}>
-              <Text style={s.signOutText}>Sign out</Text>
+              <Text style={[s.signOutText, { color: c.text3 }]}>Sign out</Text>
             </TouchableOpacity>
           </View>
 
           {/* Search */}
           <View style={s.searchRow}>
             <TextInput
-              style={s.searchInput}
+              style={[s.searchInput, { color: c.text1, backgroundColor: c.card, borderColor: c.border }]}
               placeholder="Enter a destination…"
-              placeholderTextColor={colors.text3}
+              placeholderTextColor={c.text3}
               value={search}
               onChangeText={setSearch}
               onSubmitEditing={handleSearch}
               returnKeyType="search"
             />
-            <TouchableOpacity style={s.searchBtn} onPress={() => navigation.navigate('RoutePlanner')}>
+            <TouchableOpacity style={[s.searchBtn, { backgroundColor: c.orange }]} onPress={() => navigation.navigate('RoutePlanner')}>
               <Text style={s.searchBtnText}>Plan →</Text>
             </TouchableOpacity>
           </View>
 
           {/* Quick actions */}
           <View style={s.actions}>
-            <TouchableOpacity style={s.actionBtn} onPress={() => navigation.navigate('RoutePlanner')}>
+            <TouchableOpacity style={[s.actionBtn, { backgroundColor: c.card, borderColor: c.border }]} onPress={() => navigation.navigate('RoutePlanner')}>
               <Text style={s.actionIcon}>🗺️</Text>
-              <Text style={s.actionLabel}>Plan Route</Text>
+              <Text style={[s.actionLabel, { color: c.text2 }]}>Plan Route</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={s.actionBtn} onPress={() => navigation.navigate('TripList')}>
+            <TouchableOpacity style={[s.actionBtn, { backgroundColor: c.card, borderColor: c.border }]} onPress={() => navigation.navigate('TripList')}>
               <Text style={s.actionIcon}>📋</Text>
-              <Text style={s.actionLabel}>My Trips</Text>
+              <Text style={[s.actionLabel, { color: c.text2 }]}>My Trips</Text>
             </TouchableOpacity>
           </View>
 
@@ -137,9 +140,9 @@ export default function DashboardScreen({ navigation }: Props) {
           {trips.length === 0 && (
             <View style={s.empty}>
               <Text style={s.emptyIcon}>🗺️</Text>
-              <Text style={s.emptyText}>No trips yet.</Text>
+              <Text style={[s.emptyText, { color: c.text3 }]}>No trips yet.</Text>
               <TouchableOpacity onPress={() => navigation.navigate('RoutePlanner')}>
-                <Text style={s.emptyLink}>Plan your first road trip →</Text>
+                <Text style={[s.emptyLink, { color: c.orange }]}>Plan your first road trip →</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -149,12 +152,12 @@ export default function DashboardScreen({ navigation }: Props) {
       keyExtractor={t => t.tripId}
       renderItem={({ item }) => (
         <TouchableOpacity
-          style={s.tripCard}
+          style={[s.tripCard, { backgroundColor: c.card, borderColor: c.border }]}
           onPress={() => navigation.navigate('TripDetail', { tripId: item.tripId })}
         >
           <View style={s.tripCardLeft}>
-            <Text style={s.tripTitle} numberOfLines={1}>{item.title}</Text>
-            <Text style={s.tripMeta}>{item.destination} · {fmtDate(item.startDate)}</Text>
+            <Text style={[s.tripTitle, { color: c.text1 }]} numberOfLines={1}>{item.title}</Text>
+            <Text style={[s.tripMeta, { color: c.text3 }]}>{item.destination} · {fmtDate(item.startDate)}</Text>
           </View>
           <TouchableOpacity style={{ padding: 8 }} onPress={() => handleDeleteTrip(item.tripId, item.title)}>
             <Text style={{ fontSize: 18 }}>🗑</Text>
@@ -167,43 +170,42 @@ export default function DashboardScreen({ navigation }: Props) {
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
+  root: { flex: 1 },
   content: { padding: 20, paddingBottom: 40 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.bg },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 },
-  greeting: { fontSize: 15, color: colors.text3, marginBottom: 4 },
-  title: { fontSize: 26, fontWeight: '800', color: colors.text1, lineHeight: 32 },
+  greeting: { fontSize: 15, marginBottom: 4 },
+  title: { fontSize: 26, fontWeight: '800', lineHeight: 32 },
   signOutBtn: { padding: 8 },
-  signOutText: { fontSize: 13, color: colors.text3 },
+  signOutText: { fontSize: 13 },
   searchRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
   searchInput: {
-    flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 12,
+    flex: 1, borderWidth: 1, borderRadius: 12,
     paddingHorizontal: 14, paddingVertical: 12, fontSize: 15,
-    color: colors.text1, backgroundColor: colors.card,
   },
   searchBtn: {
-    backgroundColor: colors.orange, borderRadius: 12,
+    borderRadius: 12,
     paddingHorizontal: 16, justifyContent: 'center',
   },
   searchBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
   actions: { flexDirection: 'row', gap: 10, marginBottom: 24 },
   actionBtn: {
-    flex: 1, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
+    flex: 1, borderWidth: 1,
     borderRadius: 14, padding: 16, alignItems: 'center', gap: 6,
   },
   actionIcon: { fontSize: 22 },
-  actionLabel: { fontSize: 13, fontWeight: '600', color: colors.text2 },
+  actionLabel: { fontSize: 13, fontWeight: '600' },
   empty: { alignItems: 'center', paddingVertical: 32 },
   emptyIcon: { fontSize: 40, marginBottom: 8 },
-  emptyText: { fontSize: 15, color: colors.text3, marginBottom: 8 },
-  emptyLink: { fontSize: 14, color: colors.orange, fontWeight: '600' },
+  emptyText: { fontSize: 15, marginBottom: 8 },
+  emptyLink: { fontSize: 14, fontWeight: '600' },
   tripCard: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
+    borderWidth: 1,
     borderRadius: 12, padding: 14, marginBottom: 8,
   },
   tripCardLeft: { flex: 1 },
-  tripTitle: { fontSize: 15, fontWeight: '600', color: colors.text1, marginBottom: 3 },
-  tripMeta: { fontSize: 13, color: colors.text3 },
-  chevron: { fontSize: 20, color: colors.text3, marginLeft: 8 },
+  tripTitle: { fontSize: 15, fontWeight: '600', marginBottom: 3 },
+  tripMeta: { fontSize: 13 },
+  chevron: { fontSize: 20, marginLeft: 8 },
 });

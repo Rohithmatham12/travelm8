@@ -6,11 +6,14 @@ import {
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { apiPost } from '../utils/api';
 import { RouteResponse, RootStackParamList } from '../types';
-import { colors, common } from '../styles/theme';
+import { useTheme, makeCommon } from '../styles/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RoutePlanner'>;
 
 export default function RoutePlannerScreen({ navigation, route }: Props) {
+  const c = useTheme();
+  const common = makeCommon(c);
+
   const rq = route.params?.routeRequest;
   const [origin, setOrigin] = useState(rq?.origin ?? '');
   const [destination, setDestination] = useState(rq?.destination ?? '');
@@ -63,40 +66,40 @@ export default function RoutePlannerScreen({ navigation, route }: Props) {
   };
 
   return (
-    <KeyboardAvoidingView style={s.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={[s.root, { backgroundColor: c.bg }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
-        <Text style={s.heading}>Plan your route</Text>
+        <Text style={[s.heading, { color: c.text1 }]}>Plan your route</Text>
 
         <Text style={common.label}>From</Text>
-        <TextInput style={common.input} placeholder="Origin city or address" placeholderTextColor={colors.text3} value={origin} onChangeText={setOrigin} />
+        <TextInput style={common.input} placeholder="Origin city or address" placeholderTextColor={c.text3} value={origin} onChangeText={setOrigin} />
 
         <Text style={common.label}>To</Text>
-        <TextInput style={common.input} placeholder="Destination" placeholderTextColor={colors.text3} value={destination} onChangeText={setDestination} />
+        <TextInput style={common.input} placeholder="Destination" placeholderTextColor={c.text3} value={destination} onChangeText={setDestination} />
 
         <View style={s.row}>
           <View style={s.half}>
             <Text style={common.label}>Date</Text>
-            <TextInput style={common.input} placeholder="YYYY-MM-DD" placeholderTextColor={colors.text3} value={date} onChangeText={setDate} />
+            <TextInput style={common.input} placeholder="YYYY-MM-DD" placeholderTextColor={c.text3} value={date} onChangeText={setDate} />
           </View>
           <View style={s.half}>
             <Text style={common.label}>Depart</Text>
-            <TextInput style={common.input} placeholder="HH:MM" placeholderTextColor={colors.text3} value={time} onChangeText={setTime} />
+            <TextInput style={common.input} placeholder="HH:MM" placeholderTextColor={c.text3} value={time} onChangeText={setTime} />
           </View>
         </View>
 
         <View style={s.row}>
           <View style={s.half}>
             <Text style={common.label}>Travelers</Text>
-            <TextInput style={common.input} placeholder="1" placeholderTextColor={colors.text3} value={travelers} onChangeText={setTravelers} keyboardType="number-pad" />
+            <TextInput style={common.input} placeholder="1" placeholderTextColor={c.text3} value={travelers} onChangeText={setTravelers} keyboardType="number-pad" />
           </View>
           <View style={s.half}>
             <Text style={common.label}>Motel/night ($)</Text>
-            <TextInput style={common.input} placeholder="80" placeholderTextColor={colors.text3} value={motelBudget} onChangeText={setMotelBudget} keyboardType="decimal-pad" />
+            <TextInput style={common.input} placeholder="80" placeholderTextColor={c.text3} value={motelBudget} onChangeText={setMotelBudget} keyboardType="decimal-pad" />
           </View>
         </View>
 
         <Text style={common.label}>Meal budget / stop ($)</Text>
-        <TextInput style={common.input} placeholder="15" placeholderTextColor={colors.text3} value={mealBudget} onChangeText={setMealBudget} keyboardType="decimal-pad" />
+        <TextInput style={common.input} placeholder="15" placeholderTextColor={c.text3} value={mealBudget} onChangeText={setMealBudget} keyboardType="decimal-pad" />
 
         <TouchableOpacity
           style={[common.btnPrimary, loading && s.btnDisabled]}
@@ -110,7 +113,7 @@ export default function RoutePlannerScreen({ navigation, route }: Props) {
         </TouchableOpacity>
 
         {loading && (
-          <Text style={s.loadingHint}>AI is analyzing your route — takes ~20 seconds</Text>
+          <Text style={[s.loadingHint, { color: c.text3 }]}>AI is analyzing your route — takes ~20 seconds</Text>
         )}
       </ScrollView>
     </KeyboardAvoidingView>
@@ -118,12 +121,12 @@ export default function RoutePlannerScreen({ navigation, route }: Props) {
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
+  root: { flex: 1 },
   content: { padding: 20, paddingBottom: 40 },
-  heading: { fontSize: 22, fontWeight: '800', color: colors.text1, marginBottom: 20 },
+  heading: { fontSize: 22, fontWeight: '800', marginBottom: 20 },
   row: { flexDirection: 'row', gap: 10 },
   half: { flex: 1 },
   btnDisabled: { opacity: 0.7 },
   loadingRow: { flexDirection: 'row', alignItems: 'center' },
-  loadingHint: { textAlign: 'center', fontSize: 13, color: colors.text3, marginTop: 12 },
+  loadingHint: { textAlign: 'center', fontSize: 13, marginTop: 12 },
 });

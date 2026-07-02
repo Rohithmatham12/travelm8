@@ -6,7 +6,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
-import { colors } from '../styles/theme';
+import { useTheme, colors } from '../styles/theme';
 
 const { width } = Dimensions.get('window');
 
@@ -40,6 +40,8 @@ const SLIDES = [
 type Props = NativeStackScreenProps<RootStackParamList, 'Onboarding'>;
 
 export default function OnboardingScreen({ navigation }: Props) {
+  const c = useTheme();
+
   const [activeIndex, setActiveIndex] = useState(0);
   const flatRef = useRef<FlatList>(null);
   const scrollX = useRef(new Animated.Value(0)).current;
@@ -58,7 +60,7 @@ export default function OnboardingScreen({ navigation }: Props) {
   };
 
   return (
-    <View style={s.root}>
+    <View style={[s.root, { backgroundColor: c.bg }]}>
       <FlatList
         ref={flatRef}
         data={SLIDES}
@@ -73,8 +75,8 @@ export default function OnboardingScreen({ navigation }: Props) {
             <View style={[s.iconWrap, { backgroundColor: item.bg }]}>
               <Text style={s.icon}>{item.icon}</Text>
             </View>
-            <Text style={s.title}>{item.title}</Text>
-            <Text style={s.desc}>{item.desc}</Text>
+            <Text style={[s.title, { color: c.text1 }]}>{item.title}</Text>
+            <Text style={[s.desc, { color: c.text3 }]}>{item.desc}</Text>
           </View>
         )}
       />
@@ -106,7 +108,7 @@ export default function OnboardingScreen({ navigation }: Props) {
         </TouchableOpacity>
         {activeIndex < SLIDES.length - 1 && (
           <TouchableOpacity onPress={finish} style={s.skipBtn}>
-            <Text style={s.skipText}>Skip</Text>
+            <Text style={[s.skipText, { color: c.text3 }]}>Skip</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -115,7 +117,7 @@ export default function OnboardingScreen({ navigation }: Props) {
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
+  root: { flex: 1 },
   slide: {
     flex: 1, alignItems: 'center', justifyContent: 'center',
     paddingHorizontal: 40, paddingBottom: 160,
@@ -125,8 +127,8 @@ const s = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', marginBottom: 36,
   },
   icon: { fontSize: 64 },
-  title: { fontSize: 26, fontWeight: '800', color: colors.text1, textAlign: 'center', marginBottom: 16 },
-  desc: { fontSize: 16, color: colors.text3, textAlign: 'center', lineHeight: 24 },
+  title: { fontSize: 26, fontWeight: '800', textAlign: 'center', marginBottom: 16 },
+  desc: { fontSize: 16, textAlign: 'center', lineHeight: 24 },
   dots: {
     position: 'absolute', bottom: 140, left: 0, right: 0,
     flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6,
@@ -140,5 +142,5 @@ const s = StyleSheet.create({
   },
   nextBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   skipBtn: { alignItems: 'center', paddingVertical: 8 },
-  skipText: { fontSize: 15, color: colors.text3 },
+  skipText: { fontSize: 15 },
 });
