@@ -9,6 +9,7 @@ import { cacheTripDetail, getCachedTripDetail } from '../utils/cache';
 import { isOffline } from '../utils/network';
 import { hasTripNotifications, cancelTripNotifications } from '../utils/notifications';
 import OfflineBanner from '../components/OfflineBanner';
+import ErrorState from '../components/ErrorState';
 import { Trip, RootStackParamList } from '../types';
 import { colors, common } from '../styles/theme';
 
@@ -45,8 +46,10 @@ export default function TripDetailScreen({ route, navigation }: Props) {
   const [deleting, setDeleting] = useState(false);
   const [offline, setOffline] = useState(false);
   const [hasNotifs, setHasNotifs] = useState(false);
+  const [error, setError] = useState(false);
 
   const load = useCallback(async () => {
+    setError(false);
     const off = await isOffline();
     setOffline(off);
     if (off) {
@@ -59,7 +62,7 @@ export default function TripDetailScreen({ route, navigation }: Props) {
         await cacheTripDetail(res.data);
       } else {
         const cached = await getCachedTripDetail(tripId);
-        if (cached) { setTrip(cached); setOffline(true); }
+        if (cached) { setTrip(cached); setOffline(true); } else { setError(true); }
       }
     }
     setLoading(false);
@@ -101,15 +104,8 @@ export default function TripDetailScreen({ route, navigation }: Props) {
     return <View style={s.center}><ActivityIndicator size="large" color={colors.orange} /></View>;
   }
 
-  if (!trip) {
-    return (
-      <View style={s.center}>
-        <Text style={s.errorText}>Trip not found</Text>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={s.backLink}>← Go back</Text>
-        </TouchableOpacity>
-      </View>
-    );
+  if (error || !trip) {
+    return <ErrorState message="Couldn't load trip" onRetry={load} />;
   }
 
   const rd = trip.routeData;
