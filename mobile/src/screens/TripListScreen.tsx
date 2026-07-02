@@ -10,7 +10,7 @@ import { cacheTrips, getCachedTrips } from '../utils/cache';
 import { isOffline } from '../utils/network';
 import OfflineBanner from '../components/OfflineBanner';
 import { Trip, RootStackParamList } from '../types';
-import { colors } from '../styles/theme';
+import { useTheme } from '../styles/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TripList'>;
 
@@ -18,6 +18,8 @@ const fmtDate = (d: string) =>
   new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
 export default function TripListScreen({ navigation }: Props) {
+  const c = useTheme();
+
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -47,22 +49,22 @@ export default function TripListScreen({ navigation }: Props) {
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   if (loading) {
-    return <View style={s.center}><ActivityIndicator size="large" color={colors.orange} /></View>;
+    return <View style={[s.center, { backgroundColor: c.bg }]}><ActivityIndicator size="large" color={c.orange} /></View>;
   }
 
   return (
     <View style={{ flex: 1 }}>
     {offline && <OfflineBanner />}
     <FlatList
-      style={s.root}
+      style={[s.root, { backgroundColor: c.bg }]}
       contentContainerStyle={s.content}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.orange} />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={c.orange} />}
       ListEmptyComponent={
         <View style={s.empty}>
           <Text style={s.emptyIcon}>🗺️</Text>
-          <Text style={s.emptyText}>No saved trips yet.</Text>
+          <Text style={[s.emptyText, { color: c.text3 }]}>No saved trips yet.</Text>
           <TouchableOpacity onPress={() => navigation.navigate('RoutePlanner')}>
-            <Text style={s.emptyLink}>Plan your first route →</Text>
+            <Text style={[s.emptyLink, { color: c.orange }]}>Plan your first route →</Text>
           </TouchableOpacity>
         </View>
       }
@@ -70,14 +72,14 @@ export default function TripListScreen({ navigation }: Props) {
       keyExtractor={t => t.tripId}
       renderItem={({ item }) => (
         <TouchableOpacity
-          style={s.card}
+          style={[s.card, { backgroundColor: c.card, borderColor: c.border }]}
           onPress={() => navigation.navigate('TripDetail', { tripId: item.tripId })}
         >
           <View style={s.cardLeft}>
-            <Text style={s.cardTitle} numberOfLines={1}>{item.title}</Text>
-            <Text style={s.cardMeta}>{fmtDate(item.startDate)} · {item.travelers} traveler{item.travelers > 1 ? 's' : ''}</Text>
+            <Text style={[s.cardTitle, { color: c.text1 }]} numberOfLines={1}>{item.title}</Text>
+            <Text style={[s.cardMeta, { color: c.text3 }]}>{fmtDate(item.startDate)} · {item.travelers} traveler{item.travelers > 1 ? 's' : ''}</Text>
           </View>
-          <Text style={s.chevron}>›</Text>
+          <Text style={[s.chevron, { color: c.text3 }]}>›</Text>
         </TouchableOpacity>
       )}
     />
@@ -86,20 +88,20 @@ export default function TripListScreen({ navigation }: Props) {
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
+  root: { flex: 1 },
   content: { padding: 16, paddingBottom: 40 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.bg },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   empty: { alignItems: 'center', paddingTop: 60 },
   emptyIcon: { fontSize: 48, marginBottom: 12 },
-  emptyText: { fontSize: 16, color: colors.text3, marginBottom: 8 },
-  emptyLink: { fontSize: 14, color: colors.orange, fontWeight: '600' },
+  emptyText: { fontSize: 16, marginBottom: 8 },
+  emptyLink: { fontSize: 14, fontWeight: '600' },
   card: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
+    borderWidth: 1,
     borderRadius: 12, padding: 14, marginBottom: 8,
   },
   cardLeft: { flex: 1 },
-  cardTitle: { fontSize: 15, fontWeight: '600', color: colors.text1, marginBottom: 3 },
-  cardMeta: { fontSize: 13, color: colors.text3 },
-  chevron: { fontSize: 20, color: colors.text3, marginLeft: 8 },
+  cardTitle: { fontSize: 15, fontWeight: '600', marginBottom: 3 },
+  cardMeta: { fontSize: 13 },
+  chevron: { fontSize: 20, marginLeft: 8 },
 });

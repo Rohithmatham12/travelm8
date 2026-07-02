@@ -7,7 +7,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { apiPost } from '../utils/api';
 import { scheduleTripNotifications } from '../utils/notifications';
 import { RouteStop, StopOptionSet, RootStackParamList } from '../types';
-import { colors, common } from '../styles/theme';
+import { useTheme, makeCommon } from '../styles/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RouteResults'>;
 
@@ -21,6 +21,9 @@ const riskColors: Record<string, { bg: string; text: string }> = {
 };
 
 export default function RouteResultsScreen({ route, navigation }: Props) {
+  const c = useTheme();
+  const common = makeCommon(c);
+
   const { routePlan, routeRequest } = route.params;
   const { routeSummary: rs, stopOptionSets, aiInsights: ai } = routePlan;
 
@@ -120,37 +123,37 @@ export default function RouteResultsScreen({ route, navigation }: Props) {
   }) => {
     if (!stops.length) return null;
     const selected = type === 'poi' ? selectedPois[set.setId] : selectedRests[set.setId];
-    const selStop = stops.find(s => s.id === selected);
+    const selStop = stops.find(st => st.id === selected);
 
     return (
       <View style={s.stopCategory}>
-        <Text style={s.stopCatLabel}>{label}</Text>
+        <Text style={[s.stopCatLabel, { color: c.text2 }]}>{label}</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <TouchableOpacity
-            style={[s.stopChip, !selected && s.stopChipActive]}
+            style={[s.stopChip, { borderColor: !selected ? c.orange : c.border, backgroundColor: !selected ? '#FFF7ED' : c.card }]}
             onPress={() => selectStop(set.setId, type, '')}
           >
-            <Text style={[s.stopChipText, !selected && s.stopChipTextActive]}>Skip</Text>
+            <Text style={[s.stopChipText, { color: !selected ? c.orange : c.text3, fontWeight: !selected ? '600' : 'normal' }]}>Skip</Text>
           </TouchableOpacity>
           {stops.map(stop => (
             <TouchableOpacity
               key={stop.id}
-              style={[s.stopChip, selected === stop.id && s.stopChipActive]}
+              style={[s.stopChip, { borderColor: selected === stop.id ? c.orange : c.border, backgroundColor: selected === stop.id ? '#FFF7ED' : c.card }]}
               onPress={() => selectStop(set.setId, type, stop.id)}
             >
-              <Text style={[s.stopChipText, selected === stop.id && s.stopChipTextActive]} numberOfLines={1}>
+              <Text style={[s.stopChipText, { color: selected === stop.id ? c.orange : c.text3, fontWeight: selected === stop.id ? '600' : 'normal' }]} numberOfLines={1}>
                 {stop.name}{stop.rating ? ` ★${stop.rating.toFixed(1)}` : ''}
               </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
         {selStop && (
-          <View style={s.stopDetail}>
-            <Text style={s.stopDetailDesc} numberOfLines={3}>{selStop.description}</Text>
+          <View style={[s.stopDetail, { backgroundColor: c.bgMuted, borderLeftColor: c.orange }]}>
+            <Text style={[s.stopDetailDesc, { color: c.text2 }]} numberOfLines={3}>{selStop.description}</Text>
             <View style={s.stopDetailMeta}>
-              {selStop.openHours && <Text style={s.metaChip}>🕒 {selStop.openHours}</Text>}
-              {selStop.priceEstimate != null && <Text style={s.metaChip}>💵 ${selStop.priceEstimate}</Text>}
-              {selStop.estimatedTimeAtStop > 0 && <Text style={s.metaChip}>⏱ ~{selStop.estimatedTimeAtStop}min</Text>}
+              {selStop.openHours && <Text style={[s.metaChip, { color: c.text3, backgroundColor: c.card, borderColor: c.border }]}>🕒 {selStop.openHours}</Text>}
+              {selStop.priceEstimate != null && <Text style={[s.metaChip, { color: c.text3, backgroundColor: c.card, borderColor: c.border }]}>💵 ${selStop.priceEstimate}</Text>}
+              {selStop.estimatedTimeAtStop > 0 && <Text style={[s.metaChip, { color: c.text3, backgroundColor: c.card, borderColor: c.border }]}>⏱ ~{selStop.estimatedTimeAtStop}min</Text>}
             </View>
           </View>
         )}
@@ -159,18 +162,18 @@ export default function RouteResultsScreen({ route, navigation }: Props) {
   };
 
   return (
-    <ScrollView style={s.root} contentContainerStyle={s.content}>
+    <ScrollView style={[s.root, { backgroundColor: c.bg }]} contentContainerStyle={s.content}>
       {/* Route bar */}
-      <View style={s.routeBar}>
-        <Text style={s.routeTitle} numberOfLines={1}>{rs.origin} → {rs.destination}</Text>
+      <View style={[s.routeBar, { backgroundColor: c.card, borderColor: c.border }]}>
+        <Text style={[s.routeTitle, { color: c.text1 }]} numberOfLines={1}>{rs.origin} → {rs.destination}</Text>
         <View style={s.routeStats}>
-          <Text style={s.routeStat}>{rs.totalDistance} mi</Text>
-          <Text style={s.routeStatDiv}>·</Text>
-          <Text style={s.routeStat}>{fmtMins(rs.estimatedDriveTime)} drive</Text>
+          <Text style={[s.routeStat, { color: c.text3 }]}>{rs.totalDistance} mi</Text>
+          <Text style={[s.routeStatDiv, { color: c.border }]}>·</Text>
+          <Text style={[s.routeStat, { color: c.text3 }]}>{fmtMins(rs.estimatedDriveTime)} drive</Text>
           {rs.majorCities?.length > 0 && (
             <>
-              <Text style={s.routeStatDiv}>·</Text>
-              <Text style={s.routeStat} numberOfLines={1}>via {rs.majorCities.slice(0, 2).join(', ')}</Text>
+              <Text style={[s.routeStatDiv, { color: c.border }]}>·</Text>
+              <Text style={[s.routeStat, { color: c.text3 }]} numberOfLines={1}>via {rs.majorCities.slice(0, 2).join(', ')}</Text>
             </>
           )}
         </View>
@@ -181,8 +184,8 @@ export default function RouteResultsScreen({ route, navigation }: Props) {
         <View style={[common.card, { marginBottom: 16 }]}>
           <View style={s.aiHeader}>
             <View style={s.aiTitleRow}>
-              <View style={s.aiChip}><Text style={s.aiChipText}>AI</Text></View>
-              <Text style={s.aiTitle}>Copilot Analysis</Text>
+              <View style={[s.aiChip, { backgroundColor: c.orange }]}><Text style={s.aiChipText}>AI</Text></View>
+              <Text style={[s.aiTitle, { color: c.text1 }]}>Copilot Analysis</Text>
             </View>
             <View style={[s.riskBadge, { backgroundColor: riskColors[ai.riskLevel]?.bg }]}>
               <Text style={[s.riskText, { color: riskColors[ai.riskLevel]?.text }]}>
@@ -190,7 +193,7 @@ export default function RouteResultsScreen({ route, navigation }: Props) {
               </Text>
             </View>
           </View>
-          <Text style={s.aiSummary}>{ai.tripSummary}</Text>
+          <Text style={[s.aiSummary, { color: c.text2 }]}>{ai.tripSummary}</Text>
           {ai.fatigueWarning && (
             <View style={s.aiAlert}>
               <Text style={s.aiAlertText}>⚠️ {ai.fatigueWarning}</Text>
@@ -203,8 +206,8 @@ export default function RouteResultsScreen({ route, navigation }: Props) {
           )}
           {ai.topTip && (
             <View style={s.aiTip}>
-              <Text style={s.aiTipLabel}>TOP TIP</Text>
-              <Text style={s.aiTipText}>{ai.topTip}</Text>
+              <Text style={[s.aiTipLabel, { color: c.sky }]}>TOP TIP</Text>
+              <Text style={[s.aiTipText, { color: c.text3 }]}>{ai.topTip}</Text>
             </View>
           )}
         </View>
@@ -213,27 +216,27 @@ export default function RouteResultsScreen({ route, navigation }: Props) {
       {/* Stop zones */}
       {stopOptionSets.map(set => (
         <View key={set.setId} style={[common.card, { marginBottom: 12 }]}>
-          <Text style={s.zoneLabel}>{set.label}</Text>
-          <Text style={s.zoneMiles}>{set.distanceRange.from}–{set.distanceRange.to} mi from start</Text>
+          <Text style={[s.zoneLabel, { color: c.text1 }]}>{set.label}</Text>
+          <Text style={[s.zoneMiles, { color: c.text3 }]}>{set.distanceRange.from}–{set.distanceRange.to} mi from start</Text>
           <StopPicker set={set} type="poi" stops={set.pois} label="🏛 Places to Explore" />
           <StopPicker set={set} type="rest" stops={set.restaurants} label="🍽 Food Stop" />
           {set.motels.length > 0 && (
             <View style={s.stopCategory}>
-              <Text style={s.stopCatLabel}>🛏 Overnight Stay</Text>
+              <Text style={[s.stopCatLabel, { color: c.text2 }]}>🛏 Overnight Stay</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <TouchableOpacity
-                  style={[s.stopChip, !selectedMotel && s.stopChipActive]}
+                  style={[s.stopChip, { borderColor: !selectedMotel ? c.orange : c.border, backgroundColor: !selectedMotel ? '#FFF7ED' : c.card }]}
                   onPress={() => setSelectedMotel('')}
                 >
-                  <Text style={[s.stopChipText, !selectedMotel && s.stopChipTextActive]}>Skip</Text>
+                  <Text style={[s.stopChipText, { color: !selectedMotel ? c.orange : c.text3, fontWeight: !selectedMotel ? '600' : 'normal' }]}>Skip</Text>
                 </TouchableOpacity>
                 {set.motels.map(m => (
                   <TouchableOpacity
                     key={m.id}
-                    style={[s.stopChip, selectedMotel === m.id && s.stopChipActive]}
+                    style={[s.stopChip, { borderColor: selectedMotel === m.id ? c.orange : c.border, backgroundColor: selectedMotel === m.id ? '#FFF7ED' : c.card }]}
                     onPress={() => setSelectedMotel(m.id)}
                   >
-                    <Text style={[s.stopChipText, selectedMotel === m.id && s.stopChipTextActive]} numberOfLines={1}>
+                    <Text style={[s.stopChipText, { color: selectedMotel === m.id ? c.orange : c.text3, fontWeight: selectedMotel === m.id ? '600' : 'normal' }]} numberOfLines={1}>
                       {m.name}{m.priceEstimate != null ? ` · $${m.priceEstimate}` : ''}
                     </Text>
                   </TouchableOpacity>
@@ -257,7 +260,7 @@ export default function RouteResultsScreen({ route, navigation }: Props) {
       </TouchableOpacity>
       <TouchableOpacity style={common.btnSecondary} onPress={handleSave} disabled={saving}>
         {saving
-          ? <ActivityIndicator color={colors.text2} />
+          ? <ActivityIndicator color={c.text2} />
           : <Text style={common.btnSecondaryText}>💾 Save Route (no itinerary)</Text>
         }
       </TouchableOpacity>
@@ -266,24 +269,24 @@ export default function RouteResultsScreen({ route, navigation }: Props) {
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
+  root: { flex: 1 },
   content: { padding: 16, paddingBottom: 40 },
   routeBar: {
-    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
+    borderWidth: 1,
     borderRadius: 14, padding: 16, marginBottom: 12,
   },
-  routeTitle: { fontSize: 16, fontWeight: '700', color: colors.text1, marginBottom: 6 },
+  routeTitle: { fontSize: 16, fontWeight: '700', marginBottom: 6 },
   routeStats: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
-  routeStat: { fontSize: 13, color: colors.text3 },
-  routeStatDiv: { fontSize: 13, color: colors.border },
+  routeStat: { fontSize: 13 },
+  routeStatDiv: { fontSize: 13 },
   aiHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   aiTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  aiChip: { backgroundColor: colors.orange, borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2 },
+  aiChip: { borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2 },
   aiChipText: { color: '#fff', fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
-  aiTitle: { fontSize: 15, fontWeight: '700', color: colors.text1 },
+  aiTitle: { fontSize: 15, fontWeight: '700' },
   riskBadge: { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3 },
   riskText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
-  aiSummary: { fontSize: 14, color: colors.text2, lineHeight: 20, marginBottom: 10 },
+  aiSummary: { fontSize: 14, lineHeight: 20, marginBottom: 10 },
   aiAlert: {
     backgroundColor: '#FFFBEB', borderRadius: 8, padding: 10, marginBottom: 8,
   },
@@ -292,28 +295,26 @@ const s = StyleSheet.create({
     flexDirection: 'row', gap: 8, backgroundColor: '#EFF6FF',
     borderWidth: 1, borderColor: '#BFDBFE', borderRadius: 8, padding: 10,
   },
-  aiTipLabel: { fontSize: 10, fontWeight: '800', color: colors.sky, letterSpacing: 0.5 },
-  aiTipText: { flex: 1, fontSize: 13, color: colors.text3, lineHeight: 18 },
-  zoneLabel: { fontSize: 15, fontWeight: '700', color: colors.text1, marginBottom: 2 },
-  zoneMiles: { fontSize: 12, color: colors.text3, marginBottom: 12 },
+  aiTipLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
+  aiTipText: { flex: 1, fontSize: 13, lineHeight: 18 },
+  zoneLabel: { fontSize: 15, fontWeight: '700', marginBottom: 2 },
+  zoneMiles: { fontSize: 12, marginBottom: 12 },
   stopCategory: { marginBottom: 12 },
-  stopCatLabel: { fontSize: 13, fontWeight: '600', color: colors.text2, marginBottom: 8 },
+  stopCatLabel: { fontSize: 13, fontWeight: '600', marginBottom: 8 },
   stopChip: {
-    borderWidth: 1, borderColor: colors.border, borderRadius: 20,
+    borderWidth: 1, borderRadius: 20,
     paddingHorizontal: 12, paddingVertical: 6, marginRight: 6,
-    backgroundColor: colors.card, maxWidth: 200,
+    maxWidth: 200,
   },
-  stopChipActive: { borderColor: colors.orange, backgroundColor: colors.orangeLight },
-  stopChipText: { fontSize: 13, color: colors.text3 },
-  stopChipTextActive: { color: colors.orange, fontWeight: '600' },
+  stopChipText: { fontSize: 13 },
   stopDetail: {
-    marginTop: 8, backgroundColor: colors.bgMuted,
-    borderRadius: 10, padding: 12, borderLeftWidth: 3, borderLeftColor: colors.orange,
+    marginTop: 8,
+    borderRadius: 10, padding: 12, borderLeftWidth: 3,
   },
-  stopDetailDesc: { fontSize: 13, color: colors.text2, lineHeight: 18, marginBottom: 8 },
+  stopDetailDesc: { fontSize: 13, lineHeight: 18, marginBottom: 8 },
   stopDetailMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   metaChip: {
-    fontSize: 12, color: colors.text3, backgroundColor: colors.card,
-    borderWidth: 1, borderColor: colors.border, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2,
+    fontSize: 12,
+    borderWidth: 1, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2,
   },
 });

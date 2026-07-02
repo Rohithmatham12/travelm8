@@ -1,42 +1,67 @@
-import { StyleSheet } from 'react-native';
+import { useColorScheme, StyleSheet } from 'react-native';
 
-export const colors = {
-  orange: '#F97316',
-  orangeLight: '#FFF7ED',
-  sky: '#0EA5E9',
-  green: '#16A34A',
-  red: '#DC2626',
-  purple: '#7C3AED',
+const light = {
   bg: '#FAFAF9',
-  bgMuted: '#F3F4F6',
+  bgMuted: '#F5F5F4',
   card: '#FFFFFF',
-  border: '#E5E7EB',
-  text1: '#111827',
-  text2: '#374151',
-  text3: '#6B7280',
+  border: '#E7E5E4',
+  text1: '#1C1917',
+  text2: '#44403C',
+  text3: '#78716C',
+  orange: '#F97316',
+  sky: '#0EA5E9',
+  green: '#22C55E',
+  purple: '#A855F7',
+  red: '#EF4444',
 };
 
-export const common = StyleSheet.create({
-  input: {
-    borderWidth: 1, borderColor: colors.border, borderRadius: 10,
-    paddingHorizontal: 14, paddingVertical: 12,
-    fontSize: 15, color: colors.text1, backgroundColor: colors.card,
-    marginBottom: 12,
-  },
-  btnPrimary: {
-    backgroundColor: colors.orange, borderRadius: 12,
-    paddingVertical: 14, alignItems: 'center', marginTop: 4,
-  },
-  btnPrimaryText: { color: '#fff', fontSize: 15, fontWeight: '700' },
-  btnSecondary: {
-    borderWidth: 1.5, borderColor: colors.border, borderRadius: 12,
-    paddingVertical: 12, alignItems: 'center',
-  },
-  btnSecondaryText: { color: colors.text2, fontSize: 14, fontWeight: '600' },
-  card: {
-    backgroundColor: colors.card, borderRadius: 14,
-    borderWidth: 1, borderColor: colors.border, padding: 16, marginBottom: 12,
-  },
-  sectionTitle: { fontSize: 17, fontWeight: '700', color: colors.text1, marginBottom: 12 },
-  label: { fontSize: 12, fontWeight: '600', color: colors.text3, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 },
-});
+const dark = {
+  bg: '#0C0A09',
+  bgMuted: '#1C1917',
+  card: '#1C1917',
+  border: '#292524',
+  text1: '#FAFAF9',
+  text2: '#D6D3D1',
+  text3: '#78716C',
+  orange: '#FB923C',
+  sky: '#38BDF8',
+  green: '#4ADE80',
+  purple: '#C084FC',
+  red: '#F87171',
+};
+
+export const colors = light; // keep static export for screens not yet migrated
+
+export function useTheme() {
+  const scheme = useColorScheme();
+  return scheme === 'dark' ? dark : light;
+}
+
+// common styles factory
+export function makeCommon(c: typeof light) {
+  return StyleSheet.create({
+    input: {
+      borderWidth: 1, borderColor: c.border, borderRadius: 12,
+      padding: 14, fontSize: 15, color: c.text1, backgroundColor: c.card,
+      marginBottom: 12,
+    },
+    btnPrimary: {
+      backgroundColor: c.orange, borderRadius: 12,
+      paddingVertical: 15, alignItems: 'center' as const, marginBottom: 10,
+    },
+    btnPrimaryText: { color: '#fff', fontSize: 16, fontWeight: '700' as const },
+    btnSecondary: {
+      borderWidth: 1, borderColor: c.border, borderRadius: 12,
+      paddingVertical: 15, alignItems: 'center' as const, marginBottom: 10,
+    },
+    btnSecondaryText: { fontSize: 15, color: c.text2, fontWeight: '600' as const },
+    card: {
+      backgroundColor: c.card, borderWidth: 1, borderColor: c.border,
+      borderRadius: 14, padding: 16, marginBottom: 10,
+    },
+    sectionTitle: { fontSize: 16, fontWeight: '700', color: c.text1, marginBottom: 12 },
+    label: { fontSize: 13, fontWeight: '600', color: c.text3, marginBottom: 6, textTransform: 'uppercase' as const, letterSpacing: 0.5 },
+  });
+}
+
+export const common = makeCommon(light);

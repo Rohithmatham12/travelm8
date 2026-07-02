@@ -7,11 +7,14 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { apiPost } from '../utils/api';
 import { setToken, setStoredUser } from '../utils/auth';
 import { RootStackParamList } from '../types';
-import { colors, common } from '../styles/theme';
+import { useTheme, makeCommon } from '../styles/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Auth'>;
 
 export default function AuthScreen({ navigation }: Props) {
+  const c = useTheme();
+  const common = makeCommon(c);
+
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -46,27 +49,27 @@ export default function AuthScreen({ navigation }: Props) {
   };
 
   return (
-    <KeyboardAvoidingView style={s.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={[s.root, { backgroundColor: c.bg }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
         <View style={s.hero}>
           <Text style={s.logo}>🚗</Text>
-          <Text style={s.appName}>TravelM8</Text>
-          <Text style={s.tagline}>Your road trip copilot</Text>
+          <Text style={[s.appName, { color: c.text1 }]}>TravelM8</Text>
+          <Text style={[s.tagline, { color: c.text3 }]}>Your road trip copilot</Text>
         </View>
 
-        <View style={s.card}>
-          <View style={s.tabs}>
+        <View style={[s.card, { backgroundColor: c.card }]}>
+          <View style={[s.tabs, { backgroundColor: c.bgMuted }]}>
             <TouchableOpacity
-              style={[s.tab, mode === 'login' && s.tabActive]}
+              style={[s.tab, mode === 'login' && s.tabActive, mode === 'login' && { backgroundColor: c.card }]}
               onPress={() => setMode('login')}
             >
-              <Text style={[s.tabText, mode === 'login' && s.tabTextActive]}>Sign In</Text>
+              <Text style={[s.tabText, { color: mode === 'login' ? c.text1 : c.text3 }]}>Sign In</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[s.tab, mode === 'register' && s.tabActive]}
+              style={[s.tab, mode === 'register' && s.tabActive, mode === 'register' && { backgroundColor: c.card }]}
               onPress={() => setMode('register')}
             >
-              <Text style={[s.tabText, mode === 'register' && s.tabTextActive]}>Create Account</Text>
+              <Text style={[s.tabText, { color: mode === 'register' ? c.text1 : c.text3 }]}>Create Account</Text>
             </TouchableOpacity>
           </View>
 
@@ -74,7 +77,7 @@ export default function AuthScreen({ navigation }: Props) {
             <TextInput
               style={common.input}
               placeholder="Your name"
-              placeholderTextColor={colors.text3}
+              placeholderTextColor={c.text3}
               value={name}
               onChangeText={setName}
               autoCapitalize="words"
@@ -83,7 +86,7 @@ export default function AuthScreen({ navigation }: Props) {
           <TextInput
             style={common.input}
             placeholder="Email"
-            placeholderTextColor={colors.text3}
+            placeholderTextColor={c.text3}
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
@@ -92,7 +95,7 @@ export default function AuthScreen({ navigation }: Props) {
           <TextInput
             style={common.input}
             placeholder="Password"
-            placeholderTextColor={colors.text3}
+            placeholderTextColor={c.text3}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
@@ -111,20 +114,19 @@ export default function AuthScreen({ navigation }: Props) {
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
+  root: { flex: 1 },
   scroll: { flexGrow: 1, justifyContent: 'center', padding: 24 },
   hero: { alignItems: 'center', marginBottom: 32 },
   logo: { fontSize: 48 },
-  appName: { fontSize: 32, fontWeight: '800', color: colors.text1, marginTop: 8 },
-  tagline: { fontSize: 15, color: colors.text3, marginTop: 4 },
+  appName: { fontSize: 32, fontWeight: '800', marginTop: 8 },
+  tagline: { fontSize: 15, marginTop: 4 },
   card: {
-    backgroundColor: colors.card, borderRadius: 16,
+    borderRadius: 16,
     padding: 20, shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   },
-  tabs: { flexDirection: 'row', marginBottom: 20, borderRadius: 10, backgroundColor: colors.bgMuted, padding: 3 },
+  tabs: { flexDirection: 'row', marginBottom: 20, borderRadius: 10, padding: 3 },
   tab: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 8 },
-  tabActive: { backgroundColor: colors.card, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 2, elevation: 1 },
-  tabText: { fontSize: 14, fontWeight: '600', color: colors.text3 },
-  tabTextActive: { color: colors.text1 },
+  tabActive: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 2, elevation: 1 },
+  tabText: { fontSize: 14, fontWeight: '600' },
 });
