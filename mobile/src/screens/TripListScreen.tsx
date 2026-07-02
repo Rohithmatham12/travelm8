@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity,
-  StyleSheet, ActivityIndicator, RefreshControl,
+  StyleSheet, RefreshControl,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -9,6 +9,7 @@ import { apiGet } from '../utils/api';
 import { cacheTrips, getCachedTrips } from '../utils/cache';
 import { isOffline } from '../utils/network';
 import OfflineBanner from '../components/OfflineBanner';
+import SkeletonCard from '../components/SkeletonCard';
 import { Trip, RootStackParamList } from '../types';
 import { colors } from '../styles/theme';
 
@@ -47,7 +48,11 @@ export default function TripListScreen({ navigation }: Props) {
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   if (loading) {
-    return <View style={s.center}><ActivityIndicator size="large" color={colors.orange} /></View>;
+    return (
+      <View style={{ flex: 1, backgroundColor: '#FAFAF9', padding: 20 }}>
+        <SkeletonCard /><SkeletonCard /><SkeletonCard />
+      </View>
+    );
   }
 
   return (

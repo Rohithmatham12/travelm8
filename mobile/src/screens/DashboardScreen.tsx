@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, FlatList,
-  StyleSheet, ActivityIndicator, RefreshControl,
+  StyleSheet, RefreshControl,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { apiGet } from '../utils/api';
@@ -9,6 +9,7 @@ import { getStoredUser, clearAuth } from '../utils/auth';
 import { cacheTrips, getCachedTrips } from '../utils/cache';
 import { isOffline } from '../utils/network';
 import OfflineBanner from '../components/OfflineBanner';
+import SkeletonCard from '../components/SkeletonCard';
 import { Trip, RootStackParamList } from '../types';
 import { colors, common } from '../styles/theme';
 
@@ -61,8 +62,8 @@ export default function DashboardScreen({ navigation }: Props) {
 
   if (loading) {
     return (
-      <View style={s.center}>
-        <ActivityIndicator size="large" color={colors.orange} />
+      <View style={{ flex: 1, backgroundColor: '#FAFAF9', padding: 20 }}>
+        <SkeletonCard /><SkeletonCard /><SkeletonCard />
       </View>
     );
   }

@@ -9,6 +9,7 @@ import { cacheTripDetail, getCachedTripDetail } from '../utils/cache';
 import { isOffline } from '../utils/network';
 import { hasTripNotifications, cancelTripNotifications } from '../utils/notifications';
 import OfflineBanner from '../components/OfflineBanner';
+import SkeletonCard from '../components/SkeletonCard';
 import { Trip, RootStackParamList } from '../types';
 import { colors, common } from '../styles/theme';
 
@@ -98,7 +99,11 @@ export default function TripDetailScreen({ route, navigation }: Props) {
   };
 
   if (loading) {
-    return <View style={s.center}><ActivityIndicator size="large" color={colors.orange} /></View>;
+    return (
+      <View style={{ flex: 1, backgroundColor: '#FAFAF9', padding: 20 }}>
+        <SkeletonCard />
+      </View>
+    );
   }
 
   if (!trip) {
