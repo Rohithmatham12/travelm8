@@ -77,6 +77,7 @@ const RoutePlanner: React.FC = () => {
   const [selectedMotel, setSelectedMotel] = useState<string>('');
   const [finalItinerary, setFinalItinerary] = useState<any>(null);
   const [stopInsights, setStopInsights] = useState<Record<string, StopInsight | 'loading'>>({});
+  const [tripSaveState, setTripSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
   // Group voting state
   const [voteSession, setVoteSession] = useState<VoteSession | null>(null);
@@ -105,6 +106,7 @@ const RoutePlanner: React.FC = () => {
   const handlePlanRoute = async () => {
     setLoading(true); setError(null); setRoutePlan(null);
     setFinalItinerary(null); setSelectedPois([]); setSelectedRestaurants([]); setSelectedMotel('');
+    setTripSaveState('idle');
     try {
       const result = await post<RouteResponse>('/route/plan', getRouteRequest());
       if (result.success && result.data) {
@@ -130,6 +132,19 @@ const RoutePlanner: React.FC = () => {
       else setError(result.error || 'Failed to generate itinerary');
     } catch (err: any) { setError(err.message); }
     finally { setLoading(false); }
+  };
+
+  const handleSaveTrip = async () => {
+    if (tripSaveState === 'saving' || tripSaveState === 'saved') return;
+    setTripSaveState('saving');
+    try {
+      const result = await post<any>('/trips/save-route', {
+        routeRequest: getRouteRequest(),
+        routePlan,
+        finalItinerary,
+      });
+      setTripSaveState(result.success ? 'saved' : 'error');
+    } catch { setTripSaveState('error'); }
   };
 
   const handleExportCalendar = async () => {
@@ -756,6 +771,13 @@ ${stopOptionSets.map(set => `
           <div className="itinerary-actions">
             <button className="btn-secondary" onClick={handleExportCalendar}>📅 Export to Calendar (.ics)</button>
             <button className="btn-ghost" onClick={handleDownloadPDF}>⬇ Download PDF Packet</button>
+            <button
+              className={`btn-save-trip${tripSaveState === 'saved' ? ' saved' : ''}`}
+              onClick={handleSaveTrip}
+              disabled={tripSaveState === 'saving' || tripSaveState === 'saved'}
+            >
+              {tripSaveState === 'saving' ? '⟳ Saving...' : tripSaveState === 'saved' ? '✓ Saved to My Trips' : tripSaveState === 'error' ? '✕ Save failed — retry' : '💾 Save Trip'}
+            </button>
           </div>
         </section>
       )}

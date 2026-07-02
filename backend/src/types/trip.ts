@@ -14,6 +14,11 @@ export interface Trip {
   travelers: number;
   preferences: TripPreferences;
   itinerary?: ItineraryItem[];
+  routeData?: {
+    routeRequest: any;
+    routePlan?: any;
+    finalItinerary?: any;
+  };
   createdAt: string; // ISO date string
   updatedAt: string; // ISO date string
   ttl?: number; // For DynamoDB TTL
@@ -53,6 +58,11 @@ export interface CreateTripRequest {
   currency?: string;
   travelers: number;
   preferences: TripPreferences;
+  routeData?: {
+    routeRequest: any;
+    routePlan?: any;
+    finalItinerary?: any;
+  };
 }
 
 export interface UpdateTripRequest {

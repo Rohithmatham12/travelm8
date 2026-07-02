@@ -356,6 +356,15 @@
 .event-details p  { font-size: var(--text-xs); color: var(--text-3); }
 .event-details .location { font-size: var(--text-xs); color: var(--text-4); }
 .itinerary-actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+.btn-save-trip {
+  padding: var(--sp-2) var(--sp-4); border-radius: var(--r);
+  border: 1.5px solid var(--orange); background: transparent;
+  color: var(--orange); font-size: var(--text-sm); font-weight: 600;
+  cursor: pointer; transition: all 0.15s;
+}
+.btn-save-trip:hover:not(:disabled) { background: var(--orange); color: #fff; }
+.btn-save-trip:disabled { opacity: 0.6; cursor: default; }
+.btn-save-trip.saved { border-color: #16a34a; color: #16a34a; }
 
 /* Badges used in stop cards */
 .badge {

@@ -49,6 +49,36 @@ tripsRouter.get('/:tripId', async (req: AuthRequest, res) => {
   }
 });
 
+// Save a full route plan as a trip (one-click save from RoutePlanner)
+tripsRouter.post('/save-route', async (req: AuthRequest, res) => {
+  try {
+    const userId = req.userId!;
+    const { routeRequest, routePlan, finalItinerary } = req.body;
+
+    if (!routeRequest?.origin || !routeRequest?.destination) {
+      return badRequestResponse(res, 'routeRequest with origin and destination required');
+    }
+
+    const title = `${routeRequest.origin} → ${routeRequest.destination}`;
+    const startDate = routeRequest.departureDate || new Date().toISOString().split('T')[0];
+
+    const trip = await tripService.createTrip(userId, {
+      title,
+      destination: routeRequest.destination,
+      startDate,
+      endDate: startDate,
+      travelers: routeRequest.travelers || 1,
+      preferences: {},
+      routeData: { routeRequest, routePlan, finalItinerary },
+    });
+
+    return createdResponse(res, trip, 'Trip saved');
+  } catch (error) {
+    console.error('Error saving route trip:', error);
+    return internalErrorResponse(res, 'Failed to save trip');
+  }
+});
+
 // Create trip
 tripsRouter.post('/', async (req: AuthRequest, res) => {
   try {

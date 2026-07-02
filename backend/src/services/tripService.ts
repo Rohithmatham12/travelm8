@@ -26,9 +26,9 @@ export class TripService {
       travelers: request.travelers,
       preferences: request.preferences,
       itinerary: [],
+      routeData: request.routeData,
       createdAt: now,
       updatedAt: now,
-      // Set TTL to 1 year from now (for automatic cleanup)
       ttl: Math.floor(Date.now() / 1000) + (365 * 24 * 60 * 60),
     };
 
