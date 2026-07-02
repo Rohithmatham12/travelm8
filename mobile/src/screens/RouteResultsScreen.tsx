@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   ActivityIndicator, Alert,
@@ -8,6 +8,7 @@ import { apiPost } from '../utils/api';
 import { scheduleTripNotifications } from '../utils/notifications';
 import { RouteStop, StopOptionSet, RootStackParamList } from '../types';
 import { colors, common } from '../styles/theme';
+import { getWeatherForTrip, DayWeather } from '../utils/weather';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RouteResults'>;
 
@@ -29,6 +30,14 @@ export default function RouteResultsScreen({ route, navigation }: Props) {
   const [selectedMotel, setSelectedMotel] = useState<string>('');
   const [saving, setSaving] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
+  const [weather, setWeather] = useState<DayWeather | null>(null);
+
+  useEffect(() => {
+    if (routeRequest.departureDate) {
+      getWeatherForTrip(routeRequest.origin || rs.origin, routeRequest.departureDate)
+        .then(w => { if (w) setWeather(w); });
+    }
+  }, []);
 
   const selectStop = (setId: string, type: 'poi' | 'rest', stopId: string) => {
     if (type === 'poi') setSelectedPois(p => ({ ...p, [setId]: stopId }));
@@ -176,6 +185,17 @@ export default function RouteResultsScreen({ route, navigation }: Props) {
         </View>
       </View>
 
+      {/* Weather forecast */}
+      {weather && (
+        <View style={s.weatherCard}>
+          <Text style={s.weatherEmoji}>{weather.emoji}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={s.weatherDesc}>{weather.description} on departure day</Text>
+            <Text style={s.weatherTemp}>{weather.tempMin}°–{weather.tempMax}°F</Text>
+          </View>
+        </View>
+      )}
+
       {/* AI Copilot */}
       {ai && (
         <View style={[common.card, { marginBottom: 16 }]}>
@@ -276,6 +296,14 @@ const s = StyleSheet.create({
   routeStats: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
   routeStat: { fontSize: 13, color: colors.text3 },
   routeStatDiv: { fontSize: 13, color: colors.border },
+  weatherCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
+    borderRadius: 14, padding: 14, marginBottom: 10,
+  },
+  weatherEmoji: { fontSize: 32 },
+  weatherDesc: { fontSize: 14, fontWeight: '600', color: colors.text2, marginBottom: 2 },
+  weatherTemp: { fontSize: 13, color: colors.text3 },
   aiHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   aiTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   aiChip: { backgroundColor: colors.orange, borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2 },
@@ -303,7 +331,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 6, marginRight: 6,
     backgroundColor: colors.card, maxWidth: 200,
   },
-  stopChipActive: { borderColor: colors.orange, backgroundColor: colors.orangeLight },
+  stopChipActive: { borderColor: colors.orange, backgroundColor: '#FFF7ED' },
   stopChipText: { fontSize: 13, color: colors.text3 },
   stopChipTextActive: { color: colors.orange, fontWeight: '600' },
   stopDetail: {
