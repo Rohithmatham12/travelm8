@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Trip } from '../types/trip';
 import { get, del } from '../utils/api';
+import './TripDetail.css';
 
 const TripDetail: React.FC = () => {
   const { tripId } = useParams<{ tripId: string }>();
@@ -13,241 +14,167 @@ const TripDetail: React.FC = () => {
 
   const loadTrip = useCallback(async () => {
     try {
-      setLoading(true);
       const response = await get<Trip>(`/trips/${tripId}`);
-      
-      if (response.success && response.data) {
-        setTrip(response.data);
-      } else {
-        setError(response.error || 'Failed to load trip');
-      }
-    } catch (err) {
-      console.error('Error loading trip:', err);
-      setError('Failed to load trip');
-    } finally {
-      setLoading(false);
-    }
+      if (response.success && response.data) setTrip(response.data);
+      else setError(response.error || 'Failed to load trip');
+    } catch { setError('Failed to load trip'); }
+    finally { setLoading(false); }
   }, [tripId]);
 
-  useEffect(() => {
-    if (tripId) {
-      loadTrip();
-    }
-  }, [tripId, loadTrip]);
+  useEffect(() => { if (tripId) loadTrip(); }, [tripId, loadTrip]);
 
   const handleDelete = async () => {
-    if (!tripId || !window.confirm('Are you sure you want to delete this trip? This action cannot be undone.')) {
-      return;
-    }
-
+    if (!tripId || !window.confirm('Delete this trip? This cannot be undone.')) return;
+    setDeleting(true);
     try {
-      setDeleting(true);
       const response = await del(`/trips/${tripId}`);
-      
-      if (response.success) {
-        navigate('/trips');
-      } else {
-        setError(response.error || 'Failed to delete trip');
-      }
-    } catch (err) {
-      console.error('Error deleting trip:', err);
-      setError('Failed to delete trip');
-    } finally {
-      setDeleting(false);
-    }
+      if (response.success) navigate('/dashboard');
+      else setError(response.error || 'Failed to delete trip');
+    } catch { setError('Failed to delete trip'); }
+    finally { setDeleting(false); }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
+  const fmtDate = (d: string) =>
+    new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+  const fmtTime = (iso: string) =>
+    new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  const fmtMins = (m: number) =>
+    m >= 60 ? `${Math.floor(m / 60)}h ${m % 60 > 0 ? `${m % 60}m` : ''}`.trim() : `${m}m`;
+
+  if (loading) return <div className="td-page"><div className="td-loading">Loading…</div></div>;
+
+  if (error || !trip) return (
+    <div className="td-page">
+      <p className="td-error">{error || 'Trip not found'}</p>
+      <Link to="/dashboard" className="td-back">← Dashboard</Link>
+    </div>
+  );
+
+  const rd = trip.routeData;
+  const rq = rd?.routeRequest;
+  const rp = rd?.routePlan;
+  const fi = rd?.finalItinerary;
+  const ai = rp?.aiInsights;
+  const rs = rp?.routeSummary;
+
+  const eventTypeIcon: Record<string, string> = {
+    drive: '🚗', stop: '📍', meal: '🍽', overnight: '🛏', activity: '🏛',
   };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'draft': return 'status-draft';
-      case 'planning': return 'status-planning';
-      case 'confirmed': return 'status-confirmed';
-      case 'completed': return 'status-completed';
-      case 'cancelled': return 'status-cancelled';
-      default: return 'status-draft';
-    }
-  };
-
-  const getDuration = () => {
-    if (!trip) return 0;
-    const start = new Date(trip.startDate);
-    const end = new Date(trip.endDate);
-    const diffTime = Math.abs(end.getTime() - start.getTime());
-    return Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
-  };
-
-  if (loading) {
-    return (
-      <div className="trip-detail">
-        <div className="loading">Loading trip details...</div>
-      </div>
-    );
-  }
-
-  if (error || !trip) {
-    return (
-      <div className="trip-detail">
-        <div className="error-message">
-          {error || 'Trip not found'}
-        </div>
-        <Link to="/trips" className="btn btn-secondary">
-          Back to Trips
-        </Link>
-      </div>
-    );
-  }
 
   return (
-    <div className="trip-detail">
-      <div className="trip-detail-header">
-        <div className="trip-header-content">
-          <div className="trip-title-section">
-            <h1>{trip.title}</h1>
-            <span className={`status ${getStatusColor(trip.status)}`}>
-              {trip.status}
-            </span>
+    <div className="td-page">
+      {/* Header */}
+      <div className="td-header">
+        <Link to="/dashboard" className="td-back">← Dashboard</Link>
+        <div className="td-header-row">
+          <div>
+            <h1 className="td-title">{trip.title}</h1>
+            <p className="td-subtitle">
+              {rq ? `${fmtDate(rq.departureDate)} · ${rq.travelers} traveler${rq.travelers > 1 ? 's' : ''}` : fmtDate(trip.startDate)}
+            </p>
           </div>
-          
-          <div className="trip-actions">
-            <Link to={`/trips/${trip.tripId}/edit`} className="btn btn-secondary">
-              Edit Trip
-            </Link>
-            <Link to={`/trips/${trip.tripId}/itinerary`} className="btn btn-secondary">
-              Manage Itinerary
-            </Link>
-            <Link to={`/trips/${trip.tripId}/recommendations`} className="btn btn-secondary">
-              Destination Ideas
-            </Link>
-            <Link to={`/trips/${trip.tripId}/share`} className="btn btn-secondary">
-              Share Trip
-            </Link>
-            <button
-              onClick={handleDelete}
-              className="btn btn-danger"
-              disabled={deleting}
-            >
-              {deleting ? 'Deleting...' : 'Delete Trip'}
-            </button>
-          </div>
+          <button className="td-delete-btn" onClick={handleDelete} disabled={deleting}>
+            {deleting ? 'Deleting…' : '🗑 Delete'}
+          </button>
         </div>
-
-        {trip.description && (
-          <p className="trip-description">{trip.description}</p>
-        )}
       </div>
 
-      <div className="trip-detail-content">
-        <div className="trip-info-grid">
-          <div className="info-card">
-            <h3>📍 Destination</h3>
-            <p>{trip.destination}</p>
-          </div>
+      {/* Route summary bar */}
+      {rs && (
+        <div className="td-route-bar">
+          <div className="td-route-stat"><span className="td-route-val">{rs.totalDistance}</span><span className="td-route-lbl">miles</span></div>
+          <div className="td-route-divider" />
+          <div className="td-route-stat"><span className="td-route-val">{fmtMins(rs.estimatedDriveTime)}</span><span className="td-route-lbl">drive time</span></div>
+          {rs.majorCities?.length > 0 && (
+            <>
+              <div className="td-route-divider" />
+              <div className="td-route-stat td-route-cities"><span className="td-route-lbl">via</span><span className="td-route-val">{rs.majorCities.slice(0, 3).join(', ')}</span></div>
+            </>
+          )}
+        </div>
+      )}
 
-          <div className="info-card">
-            <h3>📅 Dates</h3>
-            <p>{formatDate(trip.startDate)} - {formatDate(trip.endDate)}</p>
-            <p className="duration">{getDuration()} days</p>
+      {/* AI Copilot */}
+      {ai && (
+        <div className="td-ai-panel">
+          <div className="td-ai-header">
+            <div className="td-ai-title"><span className="td-ai-chip">AI</span> Copilot Analysis</div>
+            <span className={`td-risk-badge risk-${ai.riskLevel}`}>{ai.riskLevel.toUpperCase()} RISK</span>
           </div>
-
-          <div className="info-card">
-            <h3>👥 Travelers</h3>
-            <p>{trip.travelers} traveler{trip.travelers > 1 ? 's' : ''}</p>
-          </div>
-
-          {trip.budget && (
-            <div className="info-card">
-              <h3>💰 Budget</h3>
-              <p>{trip.currency || 'USD'} {trip.budget.toLocaleString()}</p>
+          <p className="td-ai-summary">{ai.tripSummary}</p>
+          {ai.fatigueWarning && (
+            <div className="td-ai-alert fatigue">
+              <span className="td-ai-alert-icon">⚠️</span>
+              <p>{ai.fatigueWarning}</p>
+            </div>
+          )}
+          {ai.lateArrivalNote && (
+            <div className="td-ai-alert late">
+              <span className="td-ai-alert-icon">🌙</span>
+              <p>{ai.lateArrivalNote}</p>
+            </div>
+          )}
+          {ai.topTip && (
+            <div className="td-ai-tip">
+              <span className="td-ai-tip-label">TOP TIP</span>
+              <p>{ai.topTip}</p>
             </div>
           )}
         </div>
+      )}
 
-        <div className="trip-preferences">
-          <h2>Preferences</h2>
-          <div className="preferences-grid">
-            {trip.preferences?.accommodationType && trip.preferences.accommodationType !== 'any' && (
-              <div className="preference-item">
-                <strong>Accommodation:</strong> {trip.preferences.accommodationType}
-              </div>
-            )}
-            
-            {trip.preferences?.transportMode && trip.preferences.transportMode !== 'any' && (
-              <div className="preference-item">
-                <strong>Transport:</strong> {trip.preferences.transportMode}
-              </div>
-            )}
-            
-            {trip.preferences?.budgetLevel && (
-              <div className="preference-item">
-                <strong>Budget Level:</strong> {trip.preferences.budgetLevel}
-              </div>
-            )}
-            
-            {trip.preferences?.activityTypes && trip.preferences.activityTypes.length > 0 && (
-              <div className="preference-item">
-                <strong>Activities:</strong> {trip.preferences.activityTypes.join(', ')}
-              </div>
-            )}
-            
-            {trip.preferences?.foodPreferences && trip.preferences.foodPreferences.length > 0 && (
-              <div className="preference-item">
-                <strong>Food:</strong> {trip.preferences.foodPreferences.join(', ')}
-              </div>
-            )}
+      {/* Cost breakdown */}
+      {fi?.totalEstimatedCost && (
+        <div className="td-cost">
+          <div className="td-cost-total">
+            <span className="td-cost-label">Total Estimated Cost</span>
+            <span className="td-cost-amount">${fi.totalEstimatedCost.amount}</span>
+          </div>
+          <div className="td-cost-breakdown">
+            {fi.totalEstimatedCost.breakdown.motels > 0 && <span>🛏 Motels · ${fi.totalEstimatedCost.breakdown.motels}</span>}
+            {fi.totalEstimatedCost.breakdown.meals > 0 && <span>🍽 Meals · ${fi.totalEstimatedCost.breakdown.meals}</span>}
+            {fi.totalEstimatedCost.breakdown.activities > 0 && <span>🏛 Activities · ${fi.totalEstimatedCost.breakdown.activities}</span>}
+            {fi.totalEstimatedCost.breakdown.gas > 0 && <span>⛽ Gas · ${fi.totalEstimatedCost.breakdown.gas}</span>}
           </div>
         </div>
+      )}
 
-        <div className="trip-itinerary">
-          <h2>Itinerary</h2>
-          {trip.itinerary && trip.itinerary.length > 0 ? (
-            <div className="itinerary-list">
-              {trip.itinerary.map((item) => (
-                <div key={item.id} className="itinerary-item">
-                  <div className="itinerary-item-header">
-                    <h4>{item.title}</h4>
-                    <span className={`item-status ${item.status}`}>
-                      {item.status}
-                    </span>
-                  </div>
-                  
-                  <div className="itinerary-item-details">
-                    <p className="item-date">{formatDate(item.date)}</p>
-                    {item.time && <p className="item-time">🕐 {item.time}</p>}
-                    {item.location && <p className="item-location">📍 {item.location}</p>}
-                    {item.duration && <p className="item-duration">⏱️ {item.duration} minutes</p>}
-                    {item.cost && <p className="item-cost">💰 {item.currency || 'USD'} {item.cost}</p>}
-                    {item.description && <p className="item-description">{item.description}</p>}
-                  </div>
+      {/* Calendar events / itinerary */}
+      {fi?.calendarEvents?.length > 0 && (
+        <div className="td-events">
+          <h2 className="td-section-title">Itinerary</h2>
+          <div className="td-event-list">
+            {fi.calendarEvents.map((ev: any) => (
+              <div key={ev.id} className={`td-event td-event-${ev.type || 'stop'}`}>
+                <div className="td-event-time">{fmtTime(ev.startTime)}</div>
+                <div className="td-event-dot" />
+                <div className="td-event-body">
+                  <div className="td-event-title">{eventTypeIcon[ev.type] || '📍'} {ev.title}</div>
+                  {ev.description && <p className="td-event-desc">{ev.description}</p>}
+                  {ev.location && <span className="td-event-loc">📍 {ev.location}</span>}
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="empty-itinerary">
-              <p>No itinerary items yet. Start planning your activities!</p>
-              <button className="btn btn-primary">
-                Add Itinerary Item
-              </button>
-            </div>
-          )}
+              </div>
+            ))}
+          </div>
         </div>
+      )}
 
-        <div className="trip-meta">
-          <p className="created-date">
-            Created: {formatDate(trip.createdAt)}
-          </p>
-          <p className="updated-date">
-            Last updated: {formatDate(trip.updatedAt)}
-          </p>
+      {/* Fallback: generic trip info (no routeData) */}
+      {!rd && (
+        <div className="td-generic">
+          <div className="td-info-grid">
+            <div className="td-info-card"><div className="td-info-label">Destination</div><div className="td-info-val">{trip.destination}</div></div>
+            <div className="td-info-card"><div className="td-info-label">Dates</div><div className="td-info-val">{fmtDate(trip.startDate)} – {fmtDate(trip.endDate)}</div></div>
+            <div className="td-info-card"><div className="td-info-label">Travelers</div><div className="td-info-val">{trip.travelers}</div></div>
+            {trip.budget && <div className="td-info-card"><div className="td-info-label">Budget</div><div className="td-info-val">${trip.budget.toLocaleString()}</div></div>}
+          </div>
+          <p className="td-no-route">This trip has no saved route plan. <Link to="/route-planner">Plan a route →</Link></p>
         </div>
-      </div>
+      )}
+
+      <p className="td-meta">Saved {fmtDate(trip.createdAt)}</p>
     </div>
   );
 };
