@@ -4,6 +4,8 @@
  */
 
 import crypto from 'crypto';
+import Groq from 'groq-sdk';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 interface CacheEntry {
   data: string;
@@ -35,7 +37,6 @@ async function callGroq(prompt: string): Promise<string> {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) throw new Error('GROQ_API_KEY not set');
 
-  const { default: Groq } = await import('groq-sdk');
   const groq = new Groq({ apiKey });
 
   const response = await groq.chat.completions.create({
@@ -52,7 +53,6 @@ async function callGemini(prompt: string): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('GEMINI_API_KEY not set');
 
-  const { GoogleGenerativeAI } = await import('@google/generative-ai');
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
