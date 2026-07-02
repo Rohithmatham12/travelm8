@@ -130,6 +130,13 @@ export class TripService {
   }
 
   /**
+   * Update trip notes
+   */
+  async updateNotes(userId: string, tripId: string, notes: string): Promise<Trip | null> {
+    return this.updateTrip(userId, tripId, { notes });
+  }
+
+  /**
    * Add an itinerary item to a trip
    */
   async addItineraryItem(

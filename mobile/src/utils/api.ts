@@ -34,3 +34,12 @@ export async function apiDelete(path: string): Promise<ApiResponse<void>> {
   });
   return res.json();
 }
+
+export async function apiPatch<T>(path: string, body: any): Promise<ApiResponse<T>> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'PATCH',
+    headers: await headers(),
+    body: JSON.stringify(body),
+  });
+  return res.json();
+}

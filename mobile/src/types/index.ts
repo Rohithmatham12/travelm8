@@ -6,6 +6,7 @@ export interface Trip {
   travelers: number;
   status: string;
   createdAt: string;
+  notes?: string;
   routeData?: {
     routeRequest?: any;
     routePlan?: any;

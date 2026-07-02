@@ -31,6 +31,22 @@ tripsRouter.get('/', async (req: AuthRequest, res) => {
   }
 });
 
+// Update trip notes
+tripsRouter.patch('/:tripId/notes', async (req: AuthRequest, res) => {
+  try {
+    const userId = req.userId!;
+    const { tripId } = req.params;
+    const { notes } = req.body;
+    if (typeof notes !== 'string') return badRequestResponse(res, 'notes must be a string');
+    const trip = await tripService.updateNotes(userId, tripId, notes);
+    if (!trip) return notFoundResponse(res, 'Trip not found');
+    return successResponse(res, trip);
+  } catch (error) {
+    console.error('Error updating trip notes:', error);
+    return internalErrorResponse(res, 'Failed to update notes');
+  }
+});
+
 // Get trip by ID
 tripsRouter.get('/:tripId', async (req: AuthRequest, res) => {
   try {
