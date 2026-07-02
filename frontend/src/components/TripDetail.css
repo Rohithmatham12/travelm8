@@ -14,6 +14,13 @@
 .td-header-row { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-4); }
 .td-title { font-size: 1.5rem; font-weight: 800; color: var(--text-1); margin-bottom: 4px; }
 .td-subtitle { font-size: var(--text-sm); color: var(--text-3); }
+.td-replan-btn {
+  flex-shrink: 0; padding: var(--sp-2) var(--sp-3); border-radius: var(--r);
+  border: 1.5px solid var(--orange); background: transparent;
+  font-size: var(--text-sm); color: var(--orange); font-weight: 600; cursor: pointer;
+  transition: all 0.15s;
+}
+.td-replan-btn:hover { background: var(--orange); color: #fff; }
 .td-delete-btn {
   flex-shrink: 0; padding: var(--sp-2) var(--sp-3); border-radius: var(--r);
   border: 1px solid var(--border); background: transparent;

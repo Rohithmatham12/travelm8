@@ -75,9 +75,19 @@ const TripDetail: React.FC = () => {
               {rq ? `${fmtDate(rq.departureDate)} · ${rq.travelers} traveler${rq.travelers > 1 ? 's' : ''}` : fmtDate(trip.startDate)}
             </p>
           </div>
-          <button className="td-delete-btn" onClick={handleDelete} disabled={deleting}>
-            {deleting ? 'Deleting…' : '🗑 Delete'}
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {rq && (
+              <button
+                className="td-replan-btn"
+                onClick={() => navigate('/route-planner', { state: { routeRequest: rq } })}
+              >
+                ↺ Re-plan
+              </button>
+            )}
+            <button className="td-delete-btn" onClick={handleDelete} disabled={deleting}>
+              {deleting ? 'Deleting…' : '🗑 Delete'}
+            </button>
+          </div>
         </div>
       </div>
 

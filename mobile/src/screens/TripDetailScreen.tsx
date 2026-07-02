@@ -202,6 +202,16 @@ export default function TripDetailScreen({ route, navigation }: Props) {
         </View>
       )}
 
+      {/* Re-plan */}
+      {rq && (
+        <TouchableOpacity
+          style={s.replanBtn}
+          onPress={() => navigation.navigate('RoutePlanner', { routeRequest: rq })}
+        >
+          <Text style={s.replanBtnText}>↺ Re-plan This Route</Text>
+        </TouchableOpacity>
+      )}
+
       {/* Delete */}
       <TouchableOpacity style={s.deleteBtn} onPress={handleDelete} disabled={deleting}>
         {deleting
@@ -262,8 +272,13 @@ const s = StyleSheet.create({
   eventTitle: { fontSize: 14, fontWeight: '600', color: colors.text1, marginBottom: 3 },
   eventDesc: { fontSize: 13, color: colors.text3, lineHeight: 18, marginBottom: 3 },
   eventLoc: { fontSize: 12, color: colors.sky },
+  replanBtn: {
+    marginTop: 24, backgroundColor: colors.orange, borderRadius: 12,
+    paddingVertical: 14, alignItems: 'center',
+  },
+  replanBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   deleteBtn: {
-    marginTop: 24, borderWidth: 1, borderColor: colors.border, borderRadius: 12,
+    marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 12,
     paddingVertical: 12, alignItems: 'center',
   },
   deleteBtnText: { fontSize: 14, color: colors.red, fontWeight: '600' },

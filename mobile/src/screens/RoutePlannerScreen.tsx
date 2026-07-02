@@ -10,14 +10,15 @@ import { colors, common } from '../styles/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RoutePlanner'>;
 
-export default function RoutePlannerScreen({ navigation }: Props) {
-  const [origin, setOrigin] = useState('');
-  const [destination, setDestination] = useState('');
-  const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
-  const [time, setTime] = useState('08:00');
-  const [travelers, setTravelers] = useState('1');
-  const [motelBudget, setMotelBudget] = useState('');
-  const [mealBudget, setMealBudget] = useState('');
+export default function RoutePlannerScreen({ navigation, route }: Props) {
+  const rq = route.params?.routeRequest;
+  const [origin, setOrigin] = useState(rq?.origin ?? '');
+  const [destination, setDestination] = useState(rq?.destination ?? '');
+  const [date, setDate] = useState(rq?.departureDate ?? new Date().toISOString().split('T')[0]);
+  const [time, setTime] = useState(rq?.departureTime ?? '08:00');
+  const [travelers, setTravelers] = useState(rq?.travelers ? String(rq.travelers) : '1');
+  const [motelBudget, setMotelBudget] = useState(rq?.budget?.motelPerNight ? String(rq.budget.motelPerNight) : '');
+  const [mealBudget, setMealBudget] = useState(rq?.budget?.mealBudget ? String(rq.budget.mealBudget) : '');
   const [loading, setLoading] = useState(false);
 
   const handlePlan = async () => {

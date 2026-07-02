@@ -61,8 +61,20 @@ const RoutePlanner: React.FC = () => {
   const [destination, setDestination] = useState('');
 
   useEffect(() => {
-    const state = location.state as { destination?: string } | null;
-    if (state?.destination) setDestination(state.destination);
+    const state = location.state as { destination?: string; routeRequest?: any } | null;
+    if (!state) return;
+    if (state.routeRequest) {
+      const rq = state.routeRequest;
+      if (rq.origin) setOrigin(rq.origin);
+      if (rq.destination) setDestination(rq.destination);
+      if (rq.departureDate) setDepartureDate(rq.departureDate);
+      if (rq.departureTime) setDepartureTime(rq.departureTime);
+      if (rq.travelers) setTravelers(String(rq.travelers));
+      if (rq.budget?.motelPerNight) setMotelBudget(String(rq.budget.motelPerNight));
+      if (rq.budget?.mealBudget) setMealBudget(String(rq.budget.mealBudget));
+    } else if (state.destination) {
+      setDestination(state.destination);
+    }
   }, [location.state]);
   const [departureDate, setDepartureDate] = useState('');
   const [departureTime, setDepartureTime] = useState('');
