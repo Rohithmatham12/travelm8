@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
 import { useTheme, colors } from '../styles/theme';
+import { requestNotificationPermission } from '../utils/notifications';
 
 const { width } = Dimensions.get('window');
 
@@ -35,6 +36,14 @@ const SLIDES = [
     bg: '#F0FDF4',
     accent: colors.green,
   },
+  {
+    key: 'notify',
+    icon: '🔔',
+    title: 'Never miss a departure',
+    desc: "Get reminded the night before and 1 hour before you hit the road. We'll also alert you when it's time for a break.",
+    bg: '#FFF8DC',
+    accent: '#F97316',
+  },
 ];
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Onboarding'>;
@@ -51,11 +60,12 @@ export default function OnboardingScreen({ navigation }: Props) {
     navigation.replace('Auth');
   };
 
-  const next = () => {
+  const next = async () => {
     if (activeIndex < SLIDES.length - 1) {
       flatRef.current?.scrollToIndex({ index: activeIndex + 1, animated: true });
     } else {
-      finish();
+      await requestNotificationPermission();
+      await finish();
     }
   };
 
@@ -103,7 +113,7 @@ export default function OnboardingScreen({ navigation }: Props) {
           onPress={next}
         >
           <Text style={s.nextBtnText}>
-            {activeIndex < SLIDES.length - 1 ? 'Next →' : 'Get Started →'}
+            {activeIndex < SLIDES.length - 1 ? 'Next →' : 'Allow Notifications & Start'}
           </Text>
         </TouchableOpacity>
         {activeIndex < SLIDES.length - 1 && (
