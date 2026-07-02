@@ -3,6 +3,7 @@ import {
   View, Text, TextInput, TouchableOpacity, ScrollView,
   StyleSheet, ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { apiPost } from '../utils/api';
 import { RouteResponse, RootStackParamList } from '../types';
@@ -22,6 +23,7 @@ export default function RoutePlannerScreen({ navigation, route }: Props) {
   const [loading, setLoading] = useState(false);
 
   const handlePlan = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (!origin.trim() || !destination.trim()) {
       Alert.alert('Missing fields', 'Enter both origin and destination.');
       return;
