@@ -1,25 +1,22 @@
 {
-  "services": {
-    "frontend": {
-      "root": "frontend",
-      "framework": "create-react-app"
-    },
-    "backend": {
-      "root": "backend",
-      "installCommand": "npm install",
-      "buildCommand": "npm run build",
-      "entrypoint": "src/server.ts"
+  "version": 2,
+  "installCommand": "npm ci && npm ci --prefix backend && npm ci --prefix frontend",
+  "buildCommand": "npm run build --prefix frontend",
+  "outputDirectory": "frontend/build",
+  "functions": {
+    "api/index.ts": {
+      "memory": 512,
+      "maxDuration": 30
     }
   },
   "rewrites": [
-    { "source": "/auth(/.*)?",            "destination": { "type": "service", "service": "backend" } },
-    { "source": "/route(/.*)?",           "destination": { "type": "service", "service": "backend" } },
-    { "source": "/trips(/.*)?",           "destination": { "type": "service", "service": "backend" } },
-    { "source": "/recommendations(/.*)?", "destination": { "type": "service", "service": "backend" } },
-    { "source": "/health(/.*)?",          "destination": { "type": "service", "service": "backend" } },
-    { "source": "/travel-info(/.*)?",     "destination": { "type": "service", "service": "backend" } },
-    { "source": "/flights(/.*)?",         "destination": { "type": "service", "service": "backend" } },
-    { "source": "/hotels(/.*)?",          "destination": { "type": "service", "service": "backend" } },
-    { "source": "/(.*)",                  "destination": { "type": "service", "service": "frontend" } }
+    { "source": "/health/:path*",          "destination": "/api/index" },
+    { "source": "/auth/:path*",            "destination": "/api/index" },
+    { "source": "/route/:path*",           "destination": "/api/index" },
+    { "source": "/trips/:path*",           "destination": "/api/index" },
+    { "source": "/recommendations/:path*", "destination": "/api/index" },
+    { "source": "/travel-info/:path*",     "destination": "/api/index" },
+    { "source": "/flights/:path*",         "destination": "/api/index" },
+    { "source": "/hotels/:path*",          "destination": "/api/index" }
   ]
 }
