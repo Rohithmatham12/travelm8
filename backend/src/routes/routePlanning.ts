@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authenticateToken, AuthRequest } from '../utils/auth';
 import { RoutePlanningService } from '../services/routePlanningService';
 import { RouteRequest, SelectedStops } from '../types/route';
+import { getStopInsight } from '../services/aiService';
 import {
   successResponse,
   badRequestResponse,
@@ -66,6 +67,22 @@ routePlanningRouter.post('/finalize', async (req: AuthRequest, res) => {
   } catch (error) {
     console.error('Error generating itinerary:', error);
     return internalErrorResponse(res, 'Failed to generate itinerary');
+  }
+});
+
+// AI insight for a specific stop (lazy-fetched by frontend on stop select)
+routePlanningRouter.post('/stop-insight', async (req: AuthRequest, res) => {
+  try {
+    const { stopName, stopCategory, origin, destination } = req.body;
+    if (!stopName || !stopCategory) {
+      return badRequestResponse(res, 'stopName and stopCategory are required');
+    }
+    const routeContext = origin && destination ? `${origin} → ${destination}` : 'a road trip';
+    const insight = await getStopInsight(stopName, stopCategory, routeContext);
+    return successResponse(res, insight);
+  } catch (error) {
+    console.error('Error fetching stop insight:', error);
+    return internalErrorResponse(res, 'Failed to fetch stop insight');
   }
 });
 

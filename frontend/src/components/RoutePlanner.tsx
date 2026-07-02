@@ -26,6 +26,12 @@ interface AIInsight {
   riskLevel: 'low' | 'medium' | 'high';
 }
 
+interface StopInsight {
+  whyStop: string;
+  bestTimeToVisit: string;
+  localTip: string;
+}
+
 interface RouteResponse {
   inputsRecognized: any;
   routeSummary: {
@@ -70,6 +76,7 @@ const RoutePlanner: React.FC = () => {
   const [selectedRestaurants, setSelectedRestaurants] = useState<string[]>([]);
   const [selectedMotel, setSelectedMotel] = useState<string>('');
   const [finalItinerary, setFinalItinerary] = useState<any>(null);
+  const [stopInsights, setStopInsights] = useState<Record<string, StopInsight | 'loading'>>({});
 
   // Group voting state
   const [voteSession, setVoteSession] = useState<VoteSession | null>(null);
@@ -280,6 +287,22 @@ ${stopOptionSets.map(set => `
     } else {
       setSelectedMotel(stopId);
     }
+
+    if (!stopId) return;
+    const stop = [...(set.pois), ...(set.restaurants), ...(set.motels)].find(s => s.id === stopId);
+    if (!stop || stopInsights[stopId]) return;
+    setStopInsights(prev => ({ ...prev, [stopId]: 'loading' }));
+    post<StopInsight>('/route/stop-insight', {
+      stopName: stop.name,
+      stopCategory: stop.category,
+      origin,
+      destination,
+    }).then(r => {
+      if (r.success && r.data) setStopInsights(prev => ({ ...prev, [stopId]: r.data as StopInsight }));
+      else setStopInsights(prev => { const n = { ...prev }; delete n[stopId]; return n; });
+    }).catch(() => {
+      setStopInsights(prev => { const n = { ...prev }; delete n[stopId]; return n; });
+    });
   };
 
   const findStop = (id: string): RouteStop | undefined =>
@@ -433,6 +456,20 @@ ${stopOptionSets.map(set => `
                           {typeof selStop.priceEstimate === 'number' && <span>💵 ${selStop.priceEstimate} {selStop.currency || 'USD'}</span>}
                           {selStop.estimatedTimeAtStop > 0 && <span>⏱ ~{selStop.estimatedTimeAtStop}min visit</span>}
                         </div>
+                        {stopInsights[selStop.id] === 'loading' && <div className="stop-insight-loading"><span className="insight-dot" /><span className="insight-dot" /><span className="insight-dot" /></div>}
+                        {stopInsights[selStop.id] && stopInsights[selStop.id] !== 'loading' && (() => {
+                          const ins = stopInsights[selStop.id] as StopInsight;
+                          return (
+                            <div className="stop-insight">
+                              <div className="stop-insight-label">✦ AI Insight</div>
+                              <p className="stop-insight-why">{ins.whyStop}</p>
+                              <div className="stop-insight-meta">
+                                <span>🕐 {ins.bestTimeToVisit}</span>
+                                <span>💡 {ins.localTip}</span>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
                   </div>
@@ -465,6 +502,20 @@ ${stopOptionSets.map(set => `
                           {selStop.openHours && <span>🕒 {selStop.openHours}</span>}
                           {typeof selStop.priceEstimate === 'number' && <span>💵 ~${selStop.priceEstimate}/person</span>}
                         </div>
+                        {stopInsights[selStop.id] === 'loading' && <div className="stop-insight-loading"><span className="insight-dot" /><span className="insight-dot" /><span className="insight-dot" /></div>}
+                        {stopInsights[selStop.id] && stopInsights[selStop.id] !== 'loading' && (() => {
+                          const ins = stopInsights[selStop.id] as StopInsight;
+                          return (
+                            <div className="stop-insight">
+                              <div className="stop-insight-label">✦ AI Insight</div>
+                              <p className="stop-insight-why">{ins.whyStop}</p>
+                              <div className="stop-insight-meta">
+                                <span>🕐 {ins.bestTimeToVisit}</span>
+                                <span>💡 {ins.localTip}</span>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
                   </div>
@@ -497,6 +548,20 @@ ${stopOptionSets.map(set => `
                           {selStop.openHours && <span>🕒 {selStop.openHours}</span>}
                           {typeof selStop.priceEstimate === 'number' && <span>💵 ${selStop.priceEstimate}/night</span>}
                         </div>
+                        {stopInsights[selStop.id] === 'loading' && <div className="stop-insight-loading"><span className="insight-dot" /><span className="insight-dot" /><span className="insight-dot" /></div>}
+                        {stopInsights[selStop.id] && stopInsights[selStop.id] !== 'loading' && (() => {
+                          const ins = stopInsights[selStop.id] as StopInsight;
+                          return (
+                            <div className="stop-insight">
+                              <div className="stop-insight-label">✦ AI Insight</div>
+                              <p className="stop-insight-why">{ins.whyStop}</p>
+                              <div className="stop-insight-meta">
+                                <span>🕐 {ins.bestTimeToVisit}</span>
+                                <span>💡 {ins.localTip}</span>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
                   </div>
