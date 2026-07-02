@@ -13,6 +13,7 @@ export interface Trip {
   currency?: string;
   travelers: number;
   preferences: TripPreferences;
+  notes?: string;
   itinerary?: ItineraryItem[];
   routeData?: {
     routeRequest: any;
@@ -58,6 +59,7 @@ export interface CreateTripRequest {
   currency?: string;
   travelers: number;
   preferences: TripPreferences;
+  notes?: string;
   routeData?: {
     routeRequest: any;
     routePlan?: any;
@@ -76,6 +78,7 @@ export interface UpdateTripRequest {
   travelers?: number;
   preferences?: TripPreferences;
   status?: TripStatus;
+  notes?: string;
   itinerary?: ItineraryItem[];
 }
 

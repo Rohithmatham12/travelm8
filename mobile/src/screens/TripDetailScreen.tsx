@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, Share,
-  StyleSheet, ActivityIndicator, Alert,
+  StyleSheet, ActivityIndicator, Alert, TextInput,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
-import { apiGet, apiDelete } from '../utils/api';
+import { apiGet, apiDelete, apiPatch } from '../utils/api';
 import { cacheTripDetail, getCachedTripDetail } from '../utils/cache';
 import { isOffline } from '../utils/network';
 import { hasTripNotifications, cancelTripNotifications } from '../utils/notifications';
@@ -54,6 +54,8 @@ export default function TripDetailScreen({ route, navigation }: Props) {
   const [offline, setOffline] = useState(false);
   const [hasNotifs, setHasNotifs] = useState(false);
   const [error, setError] = useState(false);
+  const [notes, setNotes] = useState('');
+  const [savingNotes, setSavingNotes] = useState(false);
   const [mapCoords, setMapCoords] = useState<{
     origin: { lat: number; lon: number } | null;
     dest: { lat: number; lon: number } | null;
@@ -94,6 +96,10 @@ export default function TripDetailScreen({ route, navigation }: Props) {
     navigation.setOptions({ title: '' });
     load();
   }, [load, navigation]);
+
+  useEffect(() => {
+    if (trip) setNotes(trip.notes || '');
+  }, [trip]);
 
   const handleCancelNotifs = () => {
     Alert.alert('Cancel reminders?', 'Remove departure and fatigue notifications for this trip.', [
@@ -310,6 +316,35 @@ export default function TripDetailScreen({ route, navigation }: Props) {
         </TouchableOpacity>
       )}
 
+      {/* Notes */}
+      <View style={[common.card, { marginBottom: 12 }]}>
+        <Text style={[common.sectionTitle, { marginBottom: 8 }]}>My Notes</Text>
+        <TextInput
+          style={[s.notesInput, { color: c.text1, backgroundColor: c.bgMuted, borderColor: c.border }]}
+          placeholder="Add notes about this trip..."
+          placeholderTextColor={c.text3}
+          value={notes}
+          onChangeText={setNotes}
+          multiline
+          numberOfLines={4}
+          textAlignVertical="top"
+        />
+        <TouchableOpacity
+          style={[s.notesSaveBtn, { backgroundColor: c.orange }]}
+          onPress={async () => {
+            setSavingNotes(true);
+            await apiPatch(`/trips/${tripId}/notes`, { notes });
+            setSavingNotes(false);
+          }}
+          disabled={savingNotes}
+        >
+          {savingNotes
+            ? <ActivityIndicator color="#fff" size="small" />
+            : <Text style={s.notesSaveBtnText}>Save notes</Text>
+          }
+        </TouchableOpacity>
+      </View>
+
       <TouchableOpacity style={s.shareBtn} onPress={handleShare}>
         <Text style={s.shareBtnText}>↗ Share Trip</Text>
       </TouchableOpacity>
@@ -403,4 +438,7 @@ const s = StyleSheet.create({
   },
   shareBtnText: { fontSize: 14, color: '#0369A1', fontWeight: '600' },
   meta: { textAlign: 'center', fontSize: 12, marginTop: 12 },
+  notesInput: { borderWidth: 1, borderRadius: 10, padding: 12, fontSize: 14, minHeight: 96, marginBottom: 10 },
+  notesSaveBtn: { borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
+  notesSaveBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
 });
