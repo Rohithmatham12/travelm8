@@ -20,6 +20,7 @@ export default function RoutePlannerScreen({ navigation, route }: Props) {
   const [date, setDate] = useState(rq?.departureDate ?? new Date().toISOString().split('T')[0]);
   const [time, setTime] = useState(rq?.departureTime ?? '08:00');
   const [travelers, setTravelers] = useState(rq?.travelers ? String(rq.travelers) : '1');
+  const [mpg, setMpg] = useState(rq?.mpg ? String(rq.mpg) : '28');
   const [motelBudget, setMotelBudget] = useState(rq?.budget?.motelPerNight ? String(rq.budget.motelPerNight) : '');
   const [mealBudget, setMealBudget] = useState(rq?.budget?.mealBudget ? String(rq.budget.mealBudget) : '');
   const [loading, setLoading] = useState(false);
@@ -47,6 +48,7 @@ export default function RoutePlannerScreen({ navigation, route }: Props) {
         departureDate: date,
         departureTime: time,
         travelers: travelerCount,
+        mpg: parseFloat(mpg) || 28,
         ...(Object.keys(budget).length > 0 && { budget }),
         preferences: { stopFrequency: 'moderate' },
         needsOfflineMaps: true,
@@ -100,6 +102,9 @@ export default function RoutePlannerScreen({ navigation, route }: Props) {
 
         <Text style={common.label}>Meal budget / stop ($)</Text>
         <TextInput style={common.input} placeholder="15" placeholderTextColor={c.text3} value={mealBudget} onChangeText={setMealBudget} keyboardType="decimal-pad" />
+
+        <Text style={common.label}>Your car's MPG</Text>
+        <TextInput style={common.input} placeholder="28" placeholderTextColor={c.text3} value={mpg} onChangeText={setMpg} keyboardType="numeric" />
 
         <TouchableOpacity
           style={[common.btnPrimary, loading && s.btnDisabled]}

@@ -28,6 +28,11 @@ export default function RouteResultsScreen({ route, navigation }: Props) {
   const { routePlan, routeRequest } = route.params;
   const { routeSummary: rs, stopOptionSets, aiInsights: ai } = routePlan;
 
+  const totalDistanceStr = String(rs.totalDistance);
+  const rawMiles = parseFloat(totalDistanceStr.replace(/[^0-9.]/g, ''));
+  const mpg = routeRequest.mpg || 28;
+  const gasCost = Math.round((rawMiles / mpg) * 3.50);
+
   const [selectedPois, setSelectedPois] = useState<Record<string, string>>({});
   const [selectedRests, setSelectedRests] = useState<Record<string, string>>({});
   const [selectedMotel, setSelectedMotel] = useState<string>('');
@@ -179,6 +184,8 @@ export default function RouteResultsScreen({ route, navigation }: Props) {
           <Text style={[s.routeStat, { color: c.text3 }]}>{rs.totalDistance} mi</Text>
           <Text style={[s.routeStatDiv, { color: c.border }]}>·</Text>
           <Text style={[s.routeStat, { color: c.text3 }]}>{fmtMins(rs.estimatedDriveTime)} drive</Text>
+          <Text style={[s.routeStatDiv, { color: c.border }]}>·</Text>
+          <Text style={[s.routeStat, { color: c.text3 }]}>⛽ ~${gasCost}</Text>
           {rs.majorCities?.length > 0 && (
             <>
               <Text style={[s.routeStatDiv, { color: c.border }]}>·</Text>
