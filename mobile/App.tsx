@@ -4,10 +4,12 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getToken } from './src/utils/auth';
 import { RootStackParamList } from './src/types';
 import { colors } from './src/styles/theme';
 
+import OnboardingScreen from './src/screens/OnboardingScreen';
 import AuthScreen from './src/screens/AuthScreen';
 import DashboardScreen from './src/screens/DashboardScreen';
 import RoutePlannerScreen from './src/screens/RoutePlannerScreen';
@@ -18,11 +20,13 @@ import TripListScreen from './src/screens/TripListScreen';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
-  const [initialRoute, setInitialRoute] = useState<'Auth' | 'Dashboard' | null>(null);
+  const [initialRoute, setInitialRoute] = useState<'Onboarding' | 'Auth' | 'Dashboard' | null>(null);
 
   useEffect(() => {
-    getToken().then(token => {
-      setInitialRoute(token ? 'Dashboard' : 'Auth');
+    Promise.all([getToken(), AsyncStorage.getItem('tm8_onboarded')]).then(([token, onboarded]) => {
+      if (token) setInitialRoute('Dashboard');
+      else if (onboarded) setInitialRoute('Auth');
+      else setInitialRoute('Onboarding');
     });
   }, []);
 
@@ -48,6 +52,7 @@ export default function App() {
             contentStyle: { backgroundColor: colors.bg },
           }}
         >
+          <Stack.Screen name="Onboarding" component={OnboardingScreen} options={{ headerShown: false }} />
           <Stack.Screen name="Auth" component={AuthScreen} options={{ headerShown: false }} />
           <Stack.Screen name="Dashboard" component={DashboardScreen} options={{ headerShown: false }} />
           <Stack.Screen name="RoutePlanner" component={RoutePlannerScreen} options={{ title: 'Plan Route' }} />

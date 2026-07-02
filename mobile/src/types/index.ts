@@ -62,6 +62,7 @@ export interface RouteResponse {
 }
 
 export type RootStackParamList = {
+  Onboarding: undefined;
   Auth: undefined;
   Dashboard: undefined;
   RoutePlanner: { routeRequest?: any } | undefined;
