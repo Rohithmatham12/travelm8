@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { apiPost } from '../utils/api';
+import { scheduleTripNotifications } from '../utils/notifications';
 import { RouteStop, StopOptionSet, RootStackParamList } from '../types';
 import { colors, common } from '../styles/theme';
 
@@ -43,6 +44,16 @@ export default function RouteResultsScreen({ route, navigation }: Props) {
         finalItinerary: null,
       });
       if (res.success) {
+        const tripId = res.data?.tripId;
+        if (tripId) {
+          scheduleTripNotifications(
+            tripId,
+            routeRequest.destination,
+            routeRequest.departureDate,
+            routeRequest.departureTime || '08:00',
+            routePlan?.routeSummary?.estimatedDriveTime || 0,
+          ).catch(() => {});
+        }
         Alert.alert('Saved!', 'Trip saved to My Trips.', [
           { text: 'View trips', onPress: () => navigation.navigate('TripList') },
           { text: 'OK' },
@@ -77,10 +88,19 @@ export default function RouteResultsScreen({ route, navigation }: Props) {
         },
       });
       if (res.success && res.data) {
-        // Save with final itinerary
-        await apiPost<any>('/trips/save-route', {
+        const saveRes = await apiPost<any>('/trips/save-route', {
           routeRequest, routePlan, finalItinerary: res.data,
         });
+        const tripId = saveRes.data?.tripId;
+        if (tripId) {
+          scheduleTripNotifications(
+            tripId,
+            routeRequest.destination,
+            routeRequest.departureDate,
+            routeRequest.departureTime || '08:00',
+            routePlan?.routeSummary?.estimatedDriveTime || 0,
+          ).catch(() => {});
+        }
         Alert.alert('Itinerary ready!', 'Your trip has been saved with a full itinerary.', [
           { text: 'View trips', onPress: () => navigation.navigate('TripList') },
           { text: 'OK' },

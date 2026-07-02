@@ -7,6 +7,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { apiGet, apiDelete } from '../utils/api';
 import { cacheTripDetail, getCachedTripDetail } from '../utils/cache';
 import { isOffline } from '../utils/network';
+import { hasTripNotifications, cancelTripNotifications } from '../utils/notifications';
 import OfflineBanner from '../components/OfflineBanner';
 import { Trip, RootStackParamList } from '../types';
 import { colors, common } from '../styles/theme';
@@ -43,6 +44,7 @@ export default function TripDetailScreen({ route, navigation }: Props) {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const [offline, setOffline] = useState(false);
+  const [hasNotifs, setHasNotifs] = useState(false);
 
   const load = useCallback(async () => {
     const off = await isOffline();
@@ -61,12 +63,25 @@ export default function TripDetailScreen({ route, navigation }: Props) {
       }
     }
     setLoading(false);
+    setHasNotifs(await hasTripNotifications(tripId));
   }, [tripId]);
 
   useEffect(() => {
     navigation.setOptions({ title: '' });
     load();
   }, [load, navigation]);
+
+  const handleCancelNotifs = () => {
+    Alert.alert('Cancel reminders?', 'Remove departure and fatigue notifications for this trip.', [
+      { text: 'Keep', style: 'cancel' },
+      {
+        text: 'Remove', style: 'destructive', onPress: async () => {
+          await cancelTripNotifications(tripId);
+          setHasNotifs(false);
+        },
+      },
+    ]);
+  };
 
   const handleDelete = () => {
     Alert.alert('Delete trip?', 'This cannot be undone.', [
@@ -231,6 +246,13 @@ export default function TripDetailScreen({ route, navigation }: Props) {
         </TouchableOpacity>
       )}
 
+      {/* Notifications */}
+      {hasNotifs && (
+        <TouchableOpacity style={s.notifBtn} onPress={handleCancelNotifs}>
+          <Text style={s.notifBtnText}>🔔 Reminders scheduled — tap to cancel</Text>
+        </TouchableOpacity>
+      )}
+
       {/* Delete */}
       <TouchableOpacity style={s.deleteBtn} onPress={handleDelete} disabled={deleting}>
         {deleting
@@ -297,6 +319,11 @@ const s = StyleSheet.create({
     paddingVertical: 14, alignItems: 'center',
   },
   replanBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  notifBtn: {
+    marginTop: 10, borderWidth: 1, borderColor: '#FED7AA', borderRadius: 12,
+    paddingVertical: 12, alignItems: 'center', backgroundColor: '#FFF7ED',
+  },
+  notifBtnText: { fontSize: 14, color: '#C2410C', fontWeight: '600' },
   deleteBtn: {
     marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 12,
     paddingVertical: 12, alignItems: 'center',

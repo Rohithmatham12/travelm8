@@ -6,6 +6,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getToken } from './src/utils/auth';
+import { requestNotificationPermission } from './src/utils/notifications';
 import { RootStackParamList } from './src/types';
 import { colors } from './src/styles/theme';
 
@@ -27,6 +28,7 @@ export default function App() {
       if (token) setInitialRoute('Dashboard');
       else if (onboarded) setInitialRoute('Auth');
       else setInitialRoute('Onboarding');
+      requestNotificationPermission();
     });
   }, []);
 
