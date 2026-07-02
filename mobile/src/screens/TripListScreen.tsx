@@ -10,6 +10,7 @@ import { cacheTrips, getCachedTrips } from '../utils/cache';
 import { isOffline } from '../utils/network';
 import OfflineBanner from '../components/OfflineBanner';
 import SkeletonCard from '../components/SkeletonCard';
+import ErrorState from '../components/ErrorState';
 import { Trip, RootStackParamList } from '../types';
 import { useTheme } from '../styles/theme';
 
@@ -25,8 +26,10 @@ export default function TripListScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [offline, setOffline] = useState(false);
+  const [error, setError] = useState(false);
 
   const load = useCallback(async () => {
+    setError(false);
     const off = await isOffline();
     setOffline(off);
     if (off) {
@@ -40,7 +43,7 @@ export default function TripListScreen({ navigation }: Props) {
         await cacheTrips(list);
       } else {
         const cached = await getCachedTrips();
-        if (cached) { setTrips(cached); setOffline(true); }
+        if (cached) { setTrips(cached); setOffline(true); } else { setError(true); }
       }
     }
     setLoading(false);
@@ -68,6 +71,10 @@ export default function TripListScreen({ navigation }: Props) {
         <SkeletonCard /><SkeletonCard /><SkeletonCard />
       </View>
     );
+  }
+
+  if (error) {
+    return <ErrorState message="Couldn't load trips" onRetry={load} />;
   }
 
   return (

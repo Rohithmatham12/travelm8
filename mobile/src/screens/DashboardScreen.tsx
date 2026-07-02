@@ -10,6 +10,7 @@ import { cacheTrips, getCachedTrips } from '../utils/cache';
 import { isOffline } from '../utils/network';
 import OfflineBanner from '../components/OfflineBanner';
 import SkeletonCard from '../components/SkeletonCard';
+import ErrorState from '../components/ErrorState';
 import { Trip, RootStackParamList } from '../types';
 import { useTheme, makeCommon } from '../styles/theme';
 
@@ -28,8 +29,10 @@ export default function DashboardScreen({ navigation }: Props) {
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [offline, setOffline] = useState(false);
+  const [error, setError] = useState(false);
 
   const loadData = useCallback(async () => {
+    setError(false);
     const u = await getStoredUser();
     setUser(u);
     const offline = await isOffline();
@@ -45,7 +48,7 @@ export default function DashboardScreen({ navigation }: Props) {
         await cacheTrips(list);
       } else {
         const cached = await getCachedTrips();
-        if (cached) { setTrips(cached); setOffline(true); }
+        if (cached) { setTrips(cached); setOffline(true); } else { setError(true); }
       }
     }
     setLoading(false);
@@ -82,6 +85,10 @@ export default function DashboardScreen({ navigation }: Props) {
         <SkeletonCard /><SkeletonCard /><SkeletonCard />
       </View>
     );
+  }
+
+  if (error) {
+    return <ErrorState message="Couldn't load trips" onRetry={loadData} />;
   }
 
   const firstName = user?.name?.split(' ')[0] || 'there';
