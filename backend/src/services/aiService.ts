@@ -4,6 +4,7 @@
  */
 
 import crypto from 'crypto';
+import https from 'https';
 
 interface CacheEntry {
   data: string;
@@ -31,24 +32,47 @@ function setCached(key: string, data: string): void {
   cache.set(key, { data, expiresAt: Date.now() + CACHE_TTL_MS });
 }
 
+function httpsPost(hostname: string, path: string, body: string, headers: Record<string, string>): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const buf = Buffer.from(body, 'utf8');
+    const req = https.request(
+      { hostname, port: 443, path, method: 'POST', headers: { 'Content-Length': buf.length, ...headers } },
+      (res) => {
+        let data = '';
+        res.on('data', (c) => { data += c; });
+        res.on('end', () => {
+          if (res.statusCode && (res.statusCode < 200 || res.statusCode >= 300)) {
+            reject(new Error(`HTTP ${res.statusCode}: ${data.slice(0, 200)}`));
+          } else {
+            resolve(data);
+          }
+        });
+      }
+    );
+    req.on('error', reject);
+    req.setTimeout(15000, () => req.destroy(new Error('timeout')));
+    req.write(buf);
+    req.end();
+  });
+}
+
 async function callGroq(prompt: string): Promise<string> {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) throw new Error('GROQ_API_KEY not set');
 
-  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
-      messages: [{ role: 'user', content: prompt }],
-      max_tokens: 800,
-      temperature: 0.4,
-    }),
-    signal: AbortSignal.timeout(15000),
+  const body = JSON.stringify({
+    model: 'llama-3.3-70b-versatile',
+    messages: [{ role: 'user', content: prompt }],
+    max_tokens: 800,
+    temperature: 0.4,
   });
 
-  if (!res.ok) throw new Error(`Groq API error: ${res.status}`);
-  const data = await res.json() as any;
+  const raw = await httpsPost('api.groq.com', '/openai/v1/chat/completions', body, {
+    'Authorization': `Bearer ${apiKey}`,
+    'Content-Type': 'application/json',
+  });
+
+  const data = JSON.parse(raw);
   return data.choices?.[0]?.message?.content ?? '';
 }
 
@@ -56,18 +80,16 @@ async function callGemini(prompt: string): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('GEMINI_API_KEY not set');
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-      signal: AbortSignal.timeout(15000),
-    }
+  const body = JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] });
+
+  const raw = await httpsPost(
+    'generativelanguage.googleapis.com',
+    `/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+    body,
+    { 'Content-Type': 'application/json' }
   );
 
-  if (!res.ok) throw new Error(`Gemini API error: ${res.status}`);
-  const data = await res.json() as any;
+  const data = JSON.parse(raw);
   return data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
 }
 
