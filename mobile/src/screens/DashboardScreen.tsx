@@ -6,6 +6,9 @@ import {
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { apiGet } from '../utils/api';
 import { getStoredUser, clearAuth } from '../utils/auth';
+import { cacheTrips, getCachedTrips } from '../utils/cache';
+import { isOffline } from '../utils/network';
+import OfflineBanner from '../components/OfflineBanner';
 import { Trip, RootStackParamList } from '../types';
 import { colors, common } from '../styles/theme';
 
@@ -20,14 +23,27 @@ export default function DashboardScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
+  const [offline, setOffline] = useState(false);
 
   const loadData = useCallback(async () => {
-    const [u, r] = await Promise.all([
-      getStoredUser(),
-      apiGet<{ trips: Trip[] }>('/trips?limit=10'),
-    ]);
+    const u = await getStoredUser();
     setUser(u);
-    if (r.success && r.data) setTrips(r.data.trips || []);
+    const offline = await isOffline();
+    setOffline(offline);
+    if (offline) {
+      const cached = await getCachedTrips();
+      if (cached) setTrips(cached);
+    } else {
+      const r = await apiGet<{ trips: Trip[] }>('/trips?limit=10');
+      if (r.success && r.data) {
+        const list = r.data.trips || [];
+        setTrips(list);
+        await cacheTrips(list);
+      } else {
+        const cached = await getCachedTrips();
+        if (cached) { setTrips(cached); setOffline(true); }
+      }
+    }
     setLoading(false);
     setRefreshing(false);
   }, []);
@@ -54,6 +70,8 @@ export default function DashboardScreen({ navigation }: Props) {
   const firstName = user?.name?.split(' ')[0] || 'there';
 
   return (
+    <View style={{ flex: 1 }}>
+    {offline && <OfflineBanner />}
     <FlatList
       style={s.root}
       contentContainerStyle={s.content}
@@ -128,6 +146,7 @@ export default function DashboardScreen({ navigation }: Props) {
         </TouchableOpacity>
       )}
     />
+    </View>
   );
 }
 

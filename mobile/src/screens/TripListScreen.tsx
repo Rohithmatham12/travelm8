@@ -6,6 +6,9 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { apiGet } from '../utils/api';
+import { cacheTrips, getCachedTrips } from '../utils/cache';
+import { isOffline } from '../utils/network';
+import OfflineBanner from '../components/OfflineBanner';
 import { Trip, RootStackParamList } from '../types';
 import { colors } from '../styles/theme';
 
@@ -18,10 +21,25 @@ export default function TripListScreen({ navigation }: Props) {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [offline, setOffline] = useState(false);
 
   const load = useCallback(async () => {
-    const res = await apiGet<{ trips: Trip[] }>('/trips?limit=50');
-    if (res.success && res.data) setTrips(res.data.trips || []);
+    const off = await isOffline();
+    setOffline(off);
+    if (off) {
+      const cached = await getCachedTrips();
+      if (cached) setTrips(cached);
+    } else {
+      const res = await apiGet<{ trips: Trip[] }>('/trips?limit=50');
+      if (res.success && res.data) {
+        const list = res.data.trips || [];
+        setTrips(list);
+        await cacheTrips(list);
+      } else {
+        const cached = await getCachedTrips();
+        if (cached) { setTrips(cached); setOffline(true); }
+      }
+    }
     setLoading(false);
     setRefreshing(false);
   }, []);
@@ -33,6 +51,8 @@ export default function TripListScreen({ navigation }: Props) {
   }
 
   return (
+    <View style={{ flex: 1 }}>
+    {offline && <OfflineBanner />}
     <FlatList
       style={s.root}
       contentContainerStyle={s.content}
@@ -61,6 +81,7 @@ export default function TripListScreen({ navigation }: Props) {
         </TouchableOpacity>
       )}
     />
+    </View>
   );
 }
 

@@ -5,6 +5,9 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { apiGet, apiDelete } from '../utils/api';
+import { cacheTripDetail, getCachedTripDetail } from '../utils/cache';
+import { isOffline } from '../utils/network';
+import OfflineBanner from '../components/OfflineBanner';
 import { Trip, RootStackParamList } from '../types';
 import { colors, common } from '../styles/theme';
 
@@ -39,10 +42,24 @@ export default function TripDetailScreen({ route, navigation }: Props) {
   const [trip, setTrip] = useState<Trip | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
+  const [offline, setOffline] = useState(false);
 
   const load = useCallback(async () => {
-    const res = await apiGet<Trip>(`/trips/${tripId}`);
-    if (res.success && res.data) setTrip(res.data);
+    const off = await isOffline();
+    setOffline(off);
+    if (off) {
+      const cached = await getCachedTripDetail(tripId);
+      if (cached) setTrip(cached);
+    } else {
+      const res = await apiGet<Trip>(`/trips/${tripId}`);
+      if (res.success && res.data) {
+        setTrip(res.data);
+        await cacheTripDetail(res.data);
+      } else {
+        const cached = await getCachedTripDetail(tripId);
+        if (cached) { setTrip(cached); setOffline(true); }
+      }
+    }
     setLoading(false);
   }, [tripId]);
 
@@ -88,6 +105,8 @@ export default function TripDetailScreen({ route, navigation }: Props) {
   const rs = rp?.routeSummary;
 
   return (
+    <View style={{ flex: 1 }}>
+    {offline && <OfflineBanner />}
     <ScrollView style={s.root} contentContainerStyle={s.content}>
       {/* Header */}
       <Text style={s.title}>{trip.title}</Text>
@@ -222,6 +241,7 @@ export default function TripDetailScreen({ route, navigation }: Props) {
 
       <Text style={s.meta}>Saved {fmtDate(trip.createdAt)}</Text>
     </ScrollView>
+    </View>
   );
 }
 
