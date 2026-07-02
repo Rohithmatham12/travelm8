@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, FlatList,
-  StyleSheet, ActivityIndicator, RefreshControl,
+  StyleSheet, ActivityIndicator, RefreshControl, Alert,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { apiGet } from '../utils/api';
+import { apiGet, apiDelete } from '../utils/api';
 import { getStoredUser, clearAuth } from '../utils/auth';
 import { cacheTrips, getCachedTrips } from '../utils/cache';
 import { isOffline } from '../utils/network';
@@ -57,6 +57,19 @@ export default function DashboardScreen({ navigation }: Props) {
 
   const handleSearch = () => {
     if (search.trim()) navigation.navigate('RoutePlanner');
+  };
+
+  const handleDeleteTrip = (tripId: string, title: string) => {
+    Alert.alert('Delete trip?', `Remove "${title}"?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete', style: 'destructive', onPress: async () => {
+          const res = await apiDelete(`/trips/${tripId}`);
+          if (res.success) setTrips(prev => prev.filter(t => t.tripId !== tripId));
+          else Alert.alert('Error', 'Failed to delete');
+        },
+      },
+    ]);
   };
 
   if (loading) {
@@ -142,7 +155,9 @@ export default function DashboardScreen({ navigation }: Props) {
             <Text style={s.tripTitle} numberOfLines={1}>{item.title}</Text>
             <Text style={s.tripMeta}>{item.destination} · {fmtDate(item.startDate)}</Text>
           </View>
-          <Text style={s.chevron}>›</Text>
+          <TouchableOpacity style={{ padding: 8 }} onPress={() => handleDeleteTrip(item.tripId, item.title)}>
+            <Text style={{ fontSize: 18 }}>🗑</Text>
+          </TouchableOpacity>
         </TouchableOpacity>
       )}
     />

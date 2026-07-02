@@ -1,11 +1,11 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity,
-  StyleSheet, ActivityIndicator, RefreshControl,
+  StyleSheet, ActivityIndicator, RefreshControl, Alert,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { apiGet } from '../utils/api';
+import { apiGet, apiDelete } from '../utils/api';
 import { cacheTrips, getCachedTrips } from '../utils/cache';
 import { isOffline } from '../utils/network';
 import OfflineBanner from '../components/OfflineBanner';
@@ -46,6 +46,19 @@ export default function TripListScreen({ navigation }: Props) {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
+  const handleDeleteTrip = (tripId: string, title: string) => {
+    Alert.alert('Delete trip?', `Remove "${title}"?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete', style: 'destructive', onPress: async () => {
+          const res = await apiDelete(`/trips/${tripId}`);
+          if (res.success) setTrips(prev => prev.filter(t => t.tripId !== tripId));
+          else Alert.alert('Error', 'Failed to delete');
+        },
+      },
+    ]);
+  };
+
   if (loading) {
     return <View style={s.center}><ActivityIndicator size="large" color={colors.orange} /></View>;
   }
@@ -77,7 +90,9 @@ export default function TripListScreen({ navigation }: Props) {
             <Text style={s.cardTitle} numberOfLines={1}>{item.title}</Text>
             <Text style={s.cardMeta}>{fmtDate(item.startDate)} · {item.travelers} traveler{item.travelers > 1 ? 's' : ''}</Text>
           </View>
-          <Text style={s.chevron}>›</Text>
+          <TouchableOpacity style={{ padding: 8 }} onPress={() => handleDeleteTrip(item.tripId, item.title)}>
+            <Text style={{ fontSize: 18 }}>🗑</Text>
+          </TouchableOpacity>
         </TouchableOpacity>
       )}
     />
