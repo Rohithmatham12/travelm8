@@ -85,11 +85,14 @@ export default function BudgetTrackerScreen({ route, navigation }: Props) {
           const r = await apiDelete(`/trips/${tripId}/budget/entries/${entryId}`);
           if (r.success && data) {
             const entries = data.spendEntries.filter(e => e.entryId !== entryId);
-            const byCategory = { ...data.totals.byCategory };
-            const removed = data.spendEntries.find(e => e.entryId === entryId);
-            if (removed) byCategory[removed.category] = (byCategory[removed.category] || 0) - removed.amount;
             const total = entries.reduce((s, e) => s + e.amount, 0);
+            const byCategory = entries.reduce((acc, e) => {
+              acc[e.category] = (acc[e.category] || 0) + e.amount;
+              return acc;
+            }, {} as BudgetData['totals']['byCategory']);
             setData({ ...data, spendEntries: entries, totals: { total, byCategory } });
+          } else if (!r.success) {
+            Alert.alert('Error', r.error || 'Failed to remove entry');
           }
         }
       },

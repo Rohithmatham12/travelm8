@@ -130,7 +130,8 @@ export default function TripDetailScreen({ route, navigation }: Props) {
         rating: fbRating, whatWorked: fbWorked, whatDidnt: fbDidnt, overallNote: fbNote,
       });
       if (r.success && r.data) { setFbUpdatedAt(r.data.updatedAt); setFbSaved(true); }
-    } catch {}
+      else Alert.alert('Error', r.error || 'Failed to save feedback');
+    } catch { Alert.alert('Error', 'Failed to save feedback'); }
     finally { setFbSaving(false); }
   };
 

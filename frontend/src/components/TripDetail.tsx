@@ -80,7 +80,8 @@ const TripDetail: React.FC = () => {
         overallNote: fbNote,
       });
       if (r.success && r.data) { setFeedback(r.data); setFbSaved(true); toast.success('Feedback saved!'); }
-    } catch {}
+      else toast.error(r.error || 'Failed to save feedback');
+    } catch { toast.error('Failed to save feedback'); }
     finally { setFbSaving(false); }
   };
 

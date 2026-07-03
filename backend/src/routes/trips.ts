@@ -31,10 +31,10 @@ tripsRouter.get('/', async (req: AuthRequest, res) => {
     const nextToken = req.query.nextToken as string | undefined;
 
     const result = await tripService.listUserTrips(userId, limit, nextToken);
-    successResponse(res, result);
+    return successResponse(res, result);
   } catch (error) {
     console.error('Error listing trips:', error);
-    internalErrorResponse(res, 'Failed to list trips');
+    return internalErrorResponse(res, 'Failed to list trips');
   }
 });
 
@@ -65,10 +65,10 @@ tripsRouter.get('/:tripId', async (req: AuthRequest, res) => {
       return notFoundResponse(res, 'Trip not found');
     }
 
-    successResponse(res, trip);
+    return successResponse(res, trip);
   } catch (error) {
     console.error('Error getting trip:', error);
-    internalErrorResponse(res, 'Failed to get trip');
+    return internalErrorResponse(res, 'Failed to get trip');
   }
 });
 
@@ -134,10 +134,10 @@ tripsRouter.post('/', async (req: AuthRequest, res) => {
     }
 
     const trip = await tripService.createTrip(userId, request);
-    createdResponse(res, trip, 'Trip created successfully');
+    return createdResponse(res, trip, 'Trip created successfully');
   } catch (error) {
     console.error('Error creating trip:', error);
-    internalErrorResponse(res, 'Failed to create trip');
+    return internalErrorResponse(res, 'Failed to create trip');
   }
 });
 
@@ -167,10 +167,10 @@ tripsRouter.put('/:tripId', async (req: AuthRequest, res) => {
       return notFoundResponse(res, 'Trip not found');
     }
 
-    successResponse(res, trip, 'Trip updated successfully');
+    return successResponse(res, trip, 'Trip updated successfully');
   } catch (error) {
     console.error('Error updating trip:', error);
-    internalErrorResponse(res, 'Failed to update trip');
+    return internalErrorResponse(res, 'Failed to update trip');
   }
 });
 
@@ -181,10 +181,10 @@ tripsRouter.delete('/:tripId', async (req: AuthRequest, res) => {
     const { tripId } = req.params;
 
     await tripService.deleteTrip(userId, tripId);
-    successResponse(res, { tripId }, 'Trip deleted successfully');
+    return successResponse(res, { tripId }, 'Trip deleted successfully');
   } catch (error) {
     console.error('Error deleting trip:', error);
-    internalErrorResponse(res, 'Failed to delete trip');
+    return internalErrorResponse(res, 'Failed to delete trip');
   }
 });
 
@@ -200,10 +200,10 @@ tripsRouter.post('/:tripId/itinerary', async (req: AuthRequest, res) => {
       return notFoundResponse(res, 'Trip not found');
     }
 
-    successResponse(res, trip, 'Itinerary item added successfully');
+    return successResponse(res, trip, 'Itinerary item added successfully');
   } catch (error) {
     console.error('Error adding itinerary item:', error);
-    internalErrorResponse(res, 'Failed to add itinerary item');
+    return internalErrorResponse(res, 'Failed to add itinerary item');
   }
 });
 
@@ -219,10 +219,10 @@ tripsRouter.put('/:tripId/itinerary/:itemId', async (req: AuthRequest, res) => {
       return notFoundResponse(res, 'Trip or itinerary item not found');
     }
 
-    successResponse(res, trip, 'Itinerary item updated successfully');
+    return successResponse(res, trip, 'Itinerary item updated successfully');
   } catch (error) {
     console.error('Error updating itinerary item:', error);
-    internalErrorResponse(res, 'Failed to update itinerary item');
+    return internalErrorResponse(res, 'Failed to update itinerary item');
   }
 });
 
