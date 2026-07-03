@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  ActivityIndicator, Alert,
+  ActivityIndicator, Alert, TextInput, Share,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { apiPost } from '../utils/api';
+import { apiPost, apiGet } from '../utils/api';
 import { scheduleTripNotifications } from '../utils/notifications';
 import { RouteStop, StopOptionSet, RootStackParamList } from '../types';
 import { useTheme, makeCommon } from '../styles/theme';
@@ -15,6 +15,13 @@ type Props = NativeStackScreenProps<RootStackParamList, 'RouteResults'>;
 
 const fmtMins = (m: number) =>
   m >= 60 ? `${Math.floor(m / 60)}h ${m % 60 > 0 ? `${m % 60}m` : ''}`.trim() : `${m}m`;
+
+interface StopInsight { whyStop: string; bestTimeToVisit: string; localTip: string; }
+interface VoteSession {
+  code: string;
+  stops: { id: string; name: string; votes: number }[];
+  voters: string[];
+}
 
 const riskColors: Record<string, { bg: string; text: string }> = {
   low: { bg: '#DCFCE7', text: '#15803D' },
@@ -40,6 +47,13 @@ export default function RouteResultsScreen({ route, navigation }: Props) {
   const [saving, setSaving] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
   const [weather, setWeather] = useState<DayWeather | null>(null);
+  const [stopInsights, setStopInsights] = useState<Record<string, StopInsight | 'loading'>>({});
+  const [voteSession, setVoteSession] = useState<VoteSession | null>(null);
+  const [voterName, setVoterName] = useState('');
+  const [joinCode, setJoinCode] = useState('');
+  const [showJoin, setShowJoin] = useState(false);
+  const [voteError, setVoteError] = useState<string | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (routeRequest.departureDate) {
@@ -48,9 +62,84 @@ export default function RouteResultsScreen({ route, navigation }: Props) {
     }
   }, []);
 
+  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
+
+  const startPolling = (code: string) => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(async () => {
+      const r = await apiGet<VoteSession>(`/vote-sessions/${code}`);
+      if (r.success && r.data) setVoteSession(r.data);
+    }, 8000);
+  };
+
   const selectStop = (setId: string, type: 'poi' | 'rest', stopId: string) => {
     if (type === 'poi') setSelectedPois(p => ({ ...p, [setId]: stopId }));
     else setSelectedRests(p => ({ ...p, [setId]: stopId }));
+
+    if (!stopId || stopInsights[stopId]) return;
+    const allStops = stopOptionSets.flatMap(s => [...s.pois, ...s.restaurants]);
+    const stop = allStops.find(st => st.id === stopId);
+    if (!stop) return;
+    setStopInsights(prev => ({ ...prev, [stopId]: 'loading' }));
+    apiPost<StopInsight>('/route/stop-insight', {
+      stopName: stop.name,
+      stopCategory: stop.category,
+      origin: routeRequest.origin || rs.origin,
+      destination: routeRequest.destination || rs.destination,
+    }).then(r => {
+      if (r.success && r.data) setStopInsights(prev => ({ ...prev, [stopId]: r.data as StopInsight }));
+      else setStopInsights(prev => { const n = { ...prev }; delete n[stopId]; return n; });
+    }).catch(() => setStopInsights(prev => { const n = { ...prev }; delete n[stopId]; return n; }));
+  };
+
+  const createVoteSession = async () => {
+    setVoteError(null);
+    const stops = stopOptionSets.flatMap(s => [...s.pois, ...s.restaurants])
+      .slice(0, 10).map(s => ({ id: s.id, name: s.name }));
+    const r = await apiPost<VoteSession>('/vote-sessions', { stops });
+    if (r.success && r.data) { setVoteSession(r.data); startPolling(r.data.code); }
+    else setVoteError(r.error || 'Failed to create session');
+  };
+
+  const joinSession = async () => {
+    const code = joinCode.toUpperCase().trim();
+    if (!code) return;
+    setVoteError(null);
+    const r = await apiGet<VoteSession>(`/vote-sessions/${code}`);
+    if (r.success && r.data) { setVoteSession(r.data); setShowJoin(false); startPolling(code); }
+    else setVoteError('Session not found. Check the code.');
+  };
+
+  const voteForStop = async (stopId: string) => {
+    if (!voteSession || !voterName.trim()) { setVoteError('Enter your name first.'); return; }
+    setVoteError(null);
+    const r = await apiPost<VoteSession>(`/vote-sessions/${voteSession.code}/vote`, {
+      voterName: voterName.trim(), stopId,
+    });
+    if (r.success && r.data) setVoteSession(r.data);
+    else setVoteError(r.error || 'Failed to cast vote');
+  };
+
+  const handleShareRoute = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const selectedStopNames = [
+      ...Object.values(selectedPois).filter(Boolean).map(id =>
+        stopOptionSets.flatMap(s => s.pois).find(p => p.id === id)?.name).filter(Boolean),
+      ...Object.values(selectedRests).filter(Boolean).map(id =>
+        stopOptionSets.flatMap(s => s.restaurants).find(p => p.id === id)?.name).filter(Boolean),
+    ];
+    const lines = [
+      `🚗 ${rs.origin} → ${rs.destination}`,
+      `📏 ${rs.totalDistance} mi · ${fmtMins(rs.estimatedDriveTime)} drive · ⛽ ~$${gasCost}`,
+      routeRequest.departureDate ? `📅 ${routeRequest.departureDate}` : '',
+      ai ? `\n🤖 ${ai.tripSummary}` : '',
+      ai?.fatigueWarning ? `⚠️ ${ai.fatigueWarning}` : '',
+      ai?.lateArrivalNote ? `🌙 ${ai.lateArrivalNote}` : '',
+      selectedStopNames.length ? `\n📍 Stops: ${selectedStopNames.join(', ')}` : '',
+      `\nPlanned with TravelM8 — travelm8app.vercel.app`,
+    ].filter(Boolean).join('\n');
+    try { await Share.share({ message: lines, title: `${rs.origin} → ${rs.destination}` }); }
+    catch {}
   };
 
   const handleSave = async () => {
@@ -172,6 +261,19 @@ export default function RouteResultsScreen({ route, navigation }: Props) {
               {selStop.priceEstimate != null && <Text style={[s.metaChip, { color: c.text3, backgroundColor: c.card, borderColor: c.border }]}>💵 ${selStop.priceEstimate}</Text>}
               {selStop.estimatedTimeAtStop > 0 && <Text style={[s.metaChip, { color: c.text3, backgroundColor: c.card, borderColor: c.border }]}>⏱ ~{selStop.estimatedTimeAtStop}min</Text>}
             </View>
+            {stopInsights[selStop.id] === 'loading' && (
+              <View style={s.insightLoading}><ActivityIndicator size="small" color={c.orange} /><Text style={[s.insightLoadingText, { color: c.text3 }]}>AI thinking…</Text></View>
+            )}
+            {stopInsights[selStop.id] && stopInsights[selStop.id] !== 'loading' && (() => {
+              const ins = stopInsights[selStop.id] as StopInsight;
+              return (
+                <View style={[s.insightPanel, { borderColor: c.orange }]}>
+                  <Text style={[s.insightRow, { color: c.text2 }]}>💡 {ins.whyStop}</Text>
+                  <Text style={[s.insightRow, { color: c.text3 }]}>🕐 {ins.bestTimeToVisit}</Text>
+                  <Text style={[s.insightRow, { color: c.text3 }]}>📌 {ins.localTip}</Text>
+                </View>
+              );
+            })()}
           </View>
         )}
       </View>
@@ -277,6 +379,84 @@ export default function RouteResultsScreen({ route, navigation }: Props) {
         </View>
       ))}
 
+      {/* Group Voting */}
+      <View style={[common.card, { marginBottom: 12 }]}>
+        <Text style={[s.zoneLabel, { color: c.text1, marginBottom: 4 }]}>Group Trip Voting</Text>
+        <Text style={[s.zoneMiles, { color: c.text3, marginBottom: 12 }]}>Share a code — everyone votes on stops before you finalize.</Text>
+        {voteError && <Text style={[s.voteError, { color: '#DC2626' }]}>{voteError}</Text>}
+        {!voteSession ? (
+          <View style={s.voteActions}>
+            <TouchableOpacity style={[common.btnPrimary, { flex: 1, marginRight: 8 }]} onPress={createVoteSession}>
+              <Text style={common.btnPrimaryText}>+ Create Session</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[common.btnSecondary, { flex: 1 }]} onPress={() => setShowJoin(v => !v)}>
+              <Text style={common.btnSecondaryText}>Join Session</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View>
+            <View style={s.sessionCodeBox}>
+              <Text style={[s.sessionCodeLabel, { color: c.text3 }]}>Share this code</Text>
+              <Text style={[s.sessionCode, { color: c.orange }]}>{voteSession.code}</Text>
+            </View>
+            <Text style={[s.zoneMiles, { color: c.text3, marginBottom: 10 }]}>Vote tally (refreshes every 8s)</Text>
+            {[...voteSession.stops].sort((a, b) => b.votes - a.votes).slice(0, 5).map(stop => (
+              <View key={stop.id} style={s.tallyRow}>
+                <Text style={[s.tallyName, { color: c.text2 }]} numberOfLines={1}>{stop.name}</Text>
+                <Text style={[s.tallyCount, { color: c.orange }]}>{stop.votes} votes</Text>
+              </View>
+            ))}
+            {voteSession.voters.length === 0 && (
+              <View style={{ marginTop: 12 }}>
+                <Text style={[s.zoneMiles, { color: c.text3, marginBottom: 8 }]}>Cast your vote:</Text>
+                <TextInput
+                  style={[s.voteInput, { color: c.text1, backgroundColor: c.bgMuted, borderColor: c.border }]}
+                  placeholder="Your name"
+                  placeholderTextColor={c.text3}
+                  value={voterName}
+                  onChangeText={setVoterName}
+                />
+                <View style={s.voteStops}>
+                  {voteSession.stops.slice(0, 6).map(stop => (
+                    <TouchableOpacity
+                      key={stop.id}
+                      style={[s.voteChip, { borderColor: c.border, backgroundColor: c.card }]}
+                      onPress={() => voteForStop(stop.id)}
+                    >
+                      <Text style={[s.voteChipText, { color: c.text2 }]} numberOfLines={1}>{stop.name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
+            {voteSession.voters.length > 0 && (
+              <View style={s.voterRow}>
+                {voteSession.voters.map(v => (
+                  <View key={v} style={[s.voterChip, { backgroundColor: c.bgMuted, borderColor: c.border }]}>
+                    <Text style={[s.voterChipText, { color: c.text3 }]}>{v}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+        {showJoin && (
+          <View style={[s.voteActions, { marginTop: 12 }]}>
+            <TextInput
+              style={[s.voteInput, { flex: 1, marginRight: 8, color: c.text1, backgroundColor: c.bgMuted, borderColor: c.border }]}
+              placeholder="Enter session code"
+              placeholderTextColor={c.text3}
+              value={joinCode}
+              onChangeText={t => setJoinCode(t.toUpperCase())}
+              autoCapitalize="characters"
+            />
+            <TouchableOpacity style={[common.btnPrimary, { paddingHorizontal: 20 }]} onPress={joinSession}>
+              <Text style={common.btnPrimaryText}>Join</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+
       {/* Actions */}
       <TouchableOpacity
         style={[common.btnPrimary, { marginBottom: 10 }]}
@@ -288,11 +468,14 @@ export default function RouteResultsScreen({ route, navigation }: Props) {
           : <Text style={common.btnPrimaryText}>Generate Full Itinerary →</Text>
         }
       </TouchableOpacity>
-      <TouchableOpacity style={common.btnSecondary} onPress={handleSave} disabled={saving}>
+      <TouchableOpacity style={[common.btnSecondary, { marginBottom: 10 }]} onPress={handleSave} disabled={saving}>
         {saving
           ? <ActivityIndicator color={c.text2} />
           : <Text style={common.btnSecondaryText}>💾 Save Route (no itinerary)</Text>
         }
+      </TouchableOpacity>
+      <TouchableOpacity style={[common.btnSecondary, { borderColor: '#BAE6FD', backgroundColor: '#F0F9FF' }]} onPress={handleShareRoute}>
+        <Text style={[common.btnSecondaryText, { color: '#0369A1' }]}>↗ Share Route</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -354,4 +537,23 @@ const s = StyleSheet.create({
     fontSize: 12,
     borderWidth: 1, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2,
   },
+  insightLoading: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
+  insightLoadingText: { fontSize: 13 },
+  insightPanel: { marginTop: 10, borderTopWidth: 1, paddingTop: 10, gap: 4 },
+  insightRow: { fontSize: 13, lineHeight: 18 },
+  voteActions: { flexDirection: 'row', alignItems: 'center' },
+  voteError: { fontSize: 13, marginBottom: 8 },
+  sessionCodeBox: { alignItems: 'center', paddingVertical: 12, marginBottom: 8 },
+  sessionCodeLabel: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
+  sessionCode: { fontSize: 32, fontWeight: '900', letterSpacing: 4 },
+  tallyRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#e5e7eb' },
+  tallyName: { fontSize: 14, flex: 1 },
+  tallyCount: { fontSize: 14, fontWeight: '700' },
+  voteInput: { borderWidth: 1, borderRadius: 10, padding: 10, fontSize: 14, marginBottom: 8 },
+  voteStops: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  voteChip: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, maxWidth: 160 },
+  voteChipText: { fontSize: 13 },
+  voterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },
+  voterChip: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3 },
+  voterChipText: { fontSize: 12 },
 });

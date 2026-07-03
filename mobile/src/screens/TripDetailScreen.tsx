@@ -6,7 +6,7 @@ import {
 import * as Haptics from 'expo-haptics';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
-import { apiGet, apiDelete, apiPatch } from '../utils/api';
+import { apiGet, apiPost, apiDelete, apiPatch } from '../utils/api';
 import { cacheTripDetail, getCachedTripDetail } from '../utils/cache';
 import { isOffline } from '../utils/network';
 import { hasTripNotifications, cancelTripNotifications } from '../utils/notifications';
@@ -56,6 +56,13 @@ export default function TripDetailScreen({ route, navigation }: Props) {
   const [error, setError] = useState(false);
   const [notes, setNotes] = useState('');
   const [savingNotes, setSavingNotes] = useState(false);
+  const [fbRating, setFbRating] = useState(0);
+  const [fbWorked, setFbWorked] = useState('');
+  const [fbDidnt, setFbDidnt] = useState('');
+  const [fbNote, setFbNote] = useState('');
+  const [fbSaving, setFbSaving] = useState(false);
+  const [fbSaved, setFbSaved] = useState(false);
+  const [fbUpdatedAt, setFbUpdatedAt] = useState<string | null>(null);
   const [mapCoords, setMapCoords] = useState<{
     origin: { lat: number; lon: number } | null;
     dest: { lat: number; lon: number } | null;
@@ -100,6 +107,31 @@ export default function TripDetailScreen({ route, navigation }: Props) {
   useEffect(() => {
     if (trip) setNotes(trip.notes || '');
   }, [trip]);
+
+  useEffect(() => {
+    if (!tripId) return;
+    apiGet<any>(`/trips/${tripId}/feedback`).then(r => {
+      if (r.success && r.data) {
+        setFbRating(r.data.rating);
+        setFbWorked(r.data.whatWorked || '');
+        setFbDidnt(r.data.whatDidnt || '');
+        setFbNote(r.data.overallNote || '');
+        setFbUpdatedAt(r.data.updatedAt);
+      }
+    }).catch(() => {});
+  }, [tripId]);
+
+  const handleSaveFeedback = async () => {
+    if (fbRating < 1) { Alert.alert('Rate your trip', 'Tap a star first.'); return; }
+    setFbSaving(true); setFbSaved(false);
+    try {
+      const r = await apiPost<any>(`/trips/${tripId}/feedback`, {
+        rating: fbRating, whatWorked: fbWorked, whatDidnt: fbDidnt, overallNote: fbNote,
+      });
+      if (r.success && r.data) { setFbUpdatedAt(r.data.updatedAt); setFbSaved(true); }
+    } catch {}
+    finally { setFbSaving(false); }
+  };
 
   const handleCancelNotifs = () => {
     Alert.alert('Cancel reminders?', 'Remove departure and fatigue notifications for this trip.', [
@@ -345,6 +377,66 @@ export default function TripDetailScreen({ route, navigation }: Props) {
         </TouchableOpacity>
       </View>
 
+      {/* Post-trip feedback */}
+      <View style={[common.card, { marginBottom: 12 }]}>
+        <Text style={[common.sectionTitle, { marginBottom: 12 }]}>How did it go?</Text>
+        <View style={s.fbStars}>
+          {[1,2,3,4,5].map(n => (
+            <TouchableOpacity key={n} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setFbRating(n); }}>
+              <Text style={[s.fbStar, { color: fbRating >= n ? '#F59E0B' : c.border }]}>★</Text>
+            </TouchableOpacity>
+          ))}
+          {fbRating > 0 && (
+            <Text style={[s.fbStarLabel, { color: '#F59E0B' }]}>
+              {['','Rough','Okay','Good','Great','Amazing'][fbRating]}
+            </Text>
+          )}
+        </View>
+        <TextInput
+          style={[s.fbInput, { color: c.text1, backgroundColor: c.bgMuted, borderColor: c.border }]}
+          placeholder="What worked well?"
+          placeholderTextColor={c.text3}
+          value={fbWorked}
+          onChangeText={setFbWorked}
+          multiline
+          numberOfLines={2}
+          textAlignVertical="top"
+        />
+        <TextInput
+          style={[s.fbInput, { color: c.text1, backgroundColor: c.bgMuted, borderColor: c.border }]}
+          placeholder="What would you change?"
+          placeholderTextColor={c.text3}
+          value={fbDidnt}
+          onChangeText={setFbDidnt}
+          multiline
+          numberOfLines={2}
+          textAlignVertical="top"
+        />
+        <TextInput
+          style={[s.fbInput, { color: c.text1, backgroundColor: c.bgMuted, borderColor: c.border }]}
+          placeholder="Overall note…"
+          placeholderTextColor={c.text3}
+          value={fbNote}
+          onChangeText={setFbNote}
+          multiline
+          numberOfLines={2}
+          textAlignVertical="top"
+        />
+        {fbUpdatedAt && (
+          <Text style={[s.fbSavedLabel, { color: c.text3 }]}>Last saved {fmtDate(fbUpdatedAt)}</Text>
+        )}
+        <TouchableOpacity
+          style={[s.notesSaveBtn, { backgroundColor: fbSaved ? '#16A34A' : c.orange }]}
+          onPress={handleSaveFeedback}
+          disabled={fbSaving}
+        >
+          {fbSaving
+            ? <ActivityIndicator color="#fff" size="small" />
+            : <Text style={s.notesSaveBtnText}>{fbSaved ? '✓ Saved' : fbUpdatedAt ? 'Update feedback' : 'Save feedback'}</Text>
+          }
+        </TouchableOpacity>
+      </View>
+
       <TouchableOpacity style={s.shareBtn} onPress={handleShare}>
         <Text style={s.shareBtnText}>↗ Share Trip</Text>
       </TouchableOpacity>
@@ -441,4 +533,9 @@ const s = StyleSheet.create({
   notesInput: { borderWidth: 1, borderRadius: 10, padding: 12, fontSize: 14, minHeight: 96, marginBottom: 10 },
   notesSaveBtn: { borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
   notesSaveBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
+  fbStars: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 14 },
+  fbStar: { fontSize: 30 },
+  fbStarLabel: { fontSize: 14, fontWeight: '700', marginLeft: 6 },
+  fbInput: { borderWidth: 1, borderRadius: 10, padding: 10, fontSize: 14, minHeight: 60, marginBottom: 8, textAlignVertical: 'top' },
+  fbSavedLabel: { fontSize: 12, textAlign: 'right', marginBottom: 8 },
 });
