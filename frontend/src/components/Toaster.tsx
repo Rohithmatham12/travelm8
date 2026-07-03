@@ -31,12 +31,12 @@ export const Toaster: React.FC = () => {
   }, [dismiss]);
 
   return (
-    <div className="toaster">
+    <div className="toaster" role="status" aria-live="polite" aria-atomic="false">
       {toasts.map(t => (
         <div key={t.id} className={`toast toast-${t.type}${t.exiting ? ' toast-exit' : ''}`}>
-          <span className="toast-icon">{ICONS[t.type]}</span>
+          <span className="toast-icon" aria-hidden="true">{ICONS[t.type]}</span>
           <span className="toast-msg">{t.msg}</span>
-          <button className="toast-close" onClick={() => dismiss(t.id)}>×</button>
+          <button className="toast-close" onClick={() => dismiss(t.id)} aria-label="Dismiss notification">×</button>
         </div>
       ))}
     </div>
