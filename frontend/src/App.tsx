@@ -21,6 +21,8 @@ import Analytics from './components/Analytics';
 import ResetPassword from './components/ResetPassword';
 import VerifyEmail from './components/VerifyEmail';
 import BudgetTracker from './components/BudgetTracker';
+import LandingPage from './components/LandingPage';
+import { isAuthenticated } from './utils/auth';
 
 function App() {
   return (
@@ -28,6 +30,7 @@ function App() {
       <div className="App">
         <Toaster />
         <Routes>
+          <Route path="/" element={isAuthenticated() ? <Navigate to="/dashboard" replace /> : <LandingPage />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
