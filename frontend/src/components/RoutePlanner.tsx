@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { post, get } from '../utils/api';
 import { generatePacketHtml, downloadPacket } from '../utils/routePacket';
+import { generateICS, downloadICS } from '../utils/calendarExport';
 import './RoutePlanner.css';
 
 interface RouteStop {
@@ -162,22 +163,11 @@ const RoutePlanner: React.FC = () => {
     } catch { setTripSaveState('error'); }
   };
 
-  const handleExportCalendar = async () => {
-    if (!finalItinerary) return;
-    try {
-      const result = await post<any>('/route/export-calendar', {
-        events: finalItinerary.calendarEvents,
-        tripTitle: `${origin} to ${destination} Road Trip`
-      });
-      if (result.success && result.data) {
-        const blob = new Blob([result.data.icsContent], { type: 'text/calendar' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = result.data.filename;
-        document.body.appendChild(a); a.click();
-        document.body.removeChild(a); URL.revokeObjectURL(url);
-      }
-    } catch (err) { console.error('Failed to export calendar:', err); }
+  const handleExportCalendar = () => {
+    if (!finalItinerary?.calendarEvents?.length) return;
+    const calName = `${origin} to ${destination} Road Trip`;
+    const ics = generateICS(finalItinerary.calendarEvents, calName);
+    downloadICS(ics, `${origin}-to-${destination}-trip`.replace(/\s+/g, '-').toLowerCase());
   };
 
   const handleDownloadPDF = () => {

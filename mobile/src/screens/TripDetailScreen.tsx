@@ -10,6 +10,7 @@ import { apiGet, apiPost, apiDelete, apiPatch } from '../utils/api';
 import { cacheTripDetail, getCachedTripDetail } from '../utils/cache';
 import { isOffline } from '../utils/network';
 import { hasTripNotifications, cancelTripNotifications } from '../utils/notifications';
+import { shareCalendar } from '../utils/calendarExport';
 import OfflineBanner from '../components/OfflineBanner';
 import SkeletonCard from '../components/SkeletonCard';
 import ErrorState from '../components/ErrorState';
@@ -310,7 +311,19 @@ export default function TripDetailScreen({ route, navigation }: Props) {
       {/* Timeline */}
       {fi?.calendarEvents?.length > 0 && (
         <View>
-          <Text style={common.sectionTitle}>Itinerary</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <Text style={[common.sectionTitle, { marginBottom: 0 }]}>Itinerary</Text>
+            <TouchableOpacity
+              style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, borderWidth: 1, borderColor: c.border, backgroundColor: c.bgMuted }}
+              onPress={async () => {
+                try {
+                  await shareCalendar(fi.calendarEvents, trip?.title || 'Road Trip');
+                } catch { Alert.alert('Error', 'Could not export calendar'); }
+              }}
+            >
+              <Text style={{ fontSize: 12, color: c.text3, fontWeight: '600' }}>📅 Export .ics</Text>
+            </TouchableOpacity>
+          </View>
           {fi.calendarEvents.map((ev: any, i: number) => (
             <View key={ev.id} style={s.event}>
               <Text style={[s.eventTime, { color: c.text3 }]}>{fmtTime(ev.startTime)}</Text>

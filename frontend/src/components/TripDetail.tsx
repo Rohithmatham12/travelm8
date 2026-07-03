@@ -4,6 +4,7 @@ import { Trip } from '../types/trip';
 import { get, post, del } from '../utils/api';
 import { toast } from '../utils/toast';
 import { generatePacketHtml, downloadPacket } from '../utils/routePacket';
+import { generateICS, downloadICS } from '../utils/calendarExport';
 import './TripDetail.css';
 
 const TripDetailSkeleton = () => (
@@ -264,7 +265,19 @@ const TripDetail: React.FC = () => {
       {/* Calendar events / itinerary */}
       {fi?.calendarEvents?.length > 0 && (
         <div className="td-events">
-          <h2 className="td-section-title">Itinerary</h2>
+          <div className="td-events-header">
+            <h2 className="td-section-title">Itinerary</h2>
+            <button
+              className="td-ics-btn"
+              onClick={() => {
+                const ics = generateICS(fi.calendarEvents, trip!.title);
+                downloadICS(ics, trip!.title.replace(/\s+/g, '-').toLowerCase());
+                toast.success('Calendar file downloaded');
+              }}
+            >
+              📅 Export .ics
+            </button>
+          </div>
           <div className="td-event-list">
             {fi.calendarEvents.map((ev: any) => (
               <div key={ev.id} className={`td-event td-event-${ev.type || 'stop'}`}>
