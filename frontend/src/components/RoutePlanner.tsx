@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import { post } from '../utils/api';
+import { post, get } from '../utils/api';
 import './RoutePlanner.css';
 
 interface RouteStop {
@@ -51,9 +51,9 @@ interface VoteSession {
   code: string;
   stops: { id: string; name: string; votes: number }[];
   voters: string[];
+  expiresAt?: string;
 }
 
-const generateCode = () => Math.random().toString(36).slice(2, 7).toUpperCase();
 
 const RoutePlanner: React.FC = () => {
   const location = useLocation();
@@ -96,6 +96,8 @@ const RoutePlanner: React.FC = () => {
   const [voterName, setVoterName] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [showJoin, setShowJoin] = useState(false);
+  const [voteError, setVoteError] = useState<string | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const getRouteRequest = () => {
     const travelerCount = travelers ? Number(travelers) : 1;
@@ -245,34 +247,51 @@ ${stopOptionSets.map(set => `
   };
 
   // Group voting helpers
-  const createVoteSession = () => {
+  const startPolling = (code: string) => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(async () => {
+      const r = await get<VoteSession>(`/vote-sessions/${code}`);
+      if (r.success && r.data) setVoteSession(r.data);
+    }, 8000);
+  };
+
+  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
+
+  const createVoteSession = async () => {
     if (!routePlan) return;
-    const allStops = routePlan.stopOptionSets.flatMap(s => [...s.pois, ...s.restaurants]).slice(0, 10);
-    const session: VoteSession = {
-      code: generateCode(),
-      stops: allStops.map(s => ({ id: s.id, name: s.name, votes: 0 })),
-      voters: []
-    };
-    setVoteSession(session);
-    localStorage.setItem(`tm8-vote-${session.code}`, JSON.stringify(session));
+    setVoteError(null);
+    const stops = routePlan.stopOptionSets
+      .flatMap(s => [...s.pois, ...s.restaurants])
+      .slice(0, 10)
+      .map(s => ({ id: s.id, name: s.name }));
+    try {
+      const r = await post<VoteSession>('/vote-sessions', { stops });
+      if (r.success && r.data) { setVoteSession(r.data); startPolling(r.data.code); }
+      else setVoteError(r.error || 'Failed to create session');
+    } catch { setVoteError('Failed to create session'); }
   };
 
-  const joinSession = () => {
-    const saved = localStorage.getItem(`tm8-vote-${joinCode.toUpperCase()}`);
-    if (saved) { setVoteSession(JSON.parse(saved)); setShowJoin(false); }
-    else { alert('Session not found. Try the code again.'); }
+  const joinSession = async () => {
+    const code = joinCode.toUpperCase();
+    setVoteError(null);
+    try {
+      const r = await get<VoteSession>(`/vote-sessions/${code}`);
+      if (r.success && r.data) { setVoteSession(r.data); setShowJoin(false); startPolling(code); }
+      else setVoteError('Session not found. Check the code and try again.');
+    } catch { setVoteError('Failed to join session'); }
   };
 
-  const voteForStop = (stopId: string) => {
+  const voteForStop = async (stopId: string) => {
     if (!voteSession || !voterName.trim()) return;
-    if (voteSession.voters.includes(voterName.trim())) { alert('You already voted in this session.'); return; }
-    const updated: VoteSession = {
-      ...voteSession,
-      stops: voteSession.stops.map(s => s.id === stopId ? { ...s, votes: s.votes + 1 } : s),
-      voters: [...voteSession.voters, voterName.trim()]
-    };
-    setVoteSession(updated);
-    localStorage.setItem(`tm8-vote-${updated.code}`, JSON.stringify(updated));
+    setVoteError(null);
+    try {
+      const r = await post<VoteSession>(`/vote-sessions/${voteSession.code}/vote`, {
+        voterName: voterName.trim(),
+        stopId,
+      });
+      if (r.success && r.data) setVoteSession(r.data);
+      else setVoteError(r.error || 'Failed to cast vote');
+    } catch { setVoteError('Failed to cast vote'); }
   };
 
   const getVerificationBadge = (status: string) => {
@@ -663,6 +682,7 @@ ${stopOptionSets.map(set => `
           <section className="group-section">
             <h3>Group Trip Voting</h3>
             <p>Share a code with your travel group — everyone votes on stops before you finalize.</p>
+            {voteError && <div className="error-message" style={{ marginBottom: '0.75rem' }}>{voteError}</div>}
             {!voteSession ? (
               <div className="group-actions">
                 <button className="btn-ghost" onClick={createVoteSession}>+ Create Vote Session</button>

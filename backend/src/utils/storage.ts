@@ -15,7 +15,7 @@ interface StorageItem {
   [key: string]: any;
 }
 
-const tableNames = ['users', 'trips', 'feedback'];
+const tableNames = ['users', 'trips', 'feedback', 'vote_sessions'];
 
 if (!pool && !fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
@@ -69,6 +69,14 @@ async function ensurePostgresTables(): Promise<void> {
       created_at TIMESTAMPTZ DEFAULT NOW(),
       updated_at TIMESTAMPTZ DEFAULT NOW(),
       PRIMARY KEY (user_id, trip_id)
+    );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS vote_sessions (
+      code TEXT PRIMARY KEY,
+      data JSONB NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      expires_at TIMESTAMPTZ DEFAULT NOW() + INTERVAL '7 days'
     );
   `);
 }
@@ -148,6 +156,17 @@ export async function putItem(tableName: string, item: StorageItem): Promise<voi
       return;
     }
 
+    if (tableName === 'vote_sessions') {
+      await pool.query(
+        `INSERT INTO vote_sessions (code, data, created_at, expires_at)
+         VALUES ($1, $2, NOW(), NOW() + INTERVAL '7 days')
+         ON CONFLICT (code)
+         DO UPDATE SET data = EXCLUDED.data`,
+        [item.code, item]
+      );
+      return;
+    }
+
     await pool.query(
       `INSERT INTO trips (user_id, trip_id, data, created_at, updated_at)
        VALUES ($1, $2, $3, NOW(), NOW())
@@ -186,6 +205,14 @@ export async function getItem(tableName: string, key: StorageItem): Promise<Stor
       const result = await pool.query(
         'SELECT data FROM feedback WHERE user_id = $1 AND trip_id = $2 LIMIT 1',
         [key.userId, key.tripId]
+      );
+      return result.rows[0]?.data || null;
+    }
+
+    if (tableName === 'vote_sessions') {
+      const result = await pool.query(
+        'SELECT data FROM vote_sessions WHERE code = $1 LIMIT 1',
+        [key.code]
       );
       return result.rows[0]?.data || null;
     }
@@ -238,6 +265,9 @@ export async function queryItems(
 function matchesKey(tableName: string, item: StorageItem, key: StorageItem): boolean {
   if ((tableName === 'trips' || tableName === 'feedback') && key.userId && key.tripId) {
     return item.userId === key.userId && item.tripId === key.tripId;
+  }
+  if (tableName === 'vote_sessions' && key.code) {
+    return item.code === key.code;
   }
   if (tableName === 'users') {
     if (key.userId) return item.userId === key.userId;
