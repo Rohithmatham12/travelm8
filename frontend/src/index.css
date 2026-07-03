@@ -71,6 +71,77 @@
   --dur:  150ms;
 }
 
+/* ─── Dark theme ─── */
+[data-theme="dark"] {
+  --bg:         #0F1117;
+  --bg-card:    #1A1D27;
+  --bg-muted:   #1E2130;
+  --bg-hover:   #252839;
+
+  --orange-light:  rgba(249,115,22,0.12);
+  --orange-dim:    rgba(249,115,22,0.18);
+  --orange-border: rgba(249,115,22,0.30);
+
+  --navy:      #F9FAFB;
+  --navy-mid:  #E5E7EB;
+
+  --text:      #F1F3F6;
+  --text-2:    #D1D5DB;
+  --text-3:    #9CA3AF;
+  --text-4:    #6B7280;
+
+  --border:    #2A2D3E;
+  --border-2:  #374151;
+
+  --green-dim: rgba(22,163,74,0.18);
+  --red-dim:   rgba(220,38,38,0.18);
+  --amber-dim: rgba(217,119,6,0.18);
+  --sky-dim:   rgba(14,165,233,0.18);
+
+  --sh-xs: 0 1px 2px rgba(0,0,0,0.4);
+  --sh-sm: 0 1px 4px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.3);
+  --sh:    0 4px 12px rgba(0,0,0,0.5), 0 1px 3px rgba(0,0,0,0.4);
+  --sh-lg: 0 8px 24px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.4);
+  --sh-xl: 0 20px 40px rgba(0,0,0,0.7), 0 4px 16px rgba(0,0,0,0.5);
+}
+
+/* Component dark overrides — hardcoded colors that don't use CSS vars */
+[data-theme="dark"] .ai-copilot-panel,
+[data-theme="dark"] .td-ai-panel { background: var(--bg-card); }
+
+[data-theme="dark"] .ai-panel-body { background: var(--bg-muted) !important; }
+
+[data-theme="dark"] .ai-alert.fatigue,
+[data-theme="dark"] .td-ai-alert.fatigue {
+  background: rgba(217,119,6,0.15); border-color: rgba(217,119,6,0.3); color: #FCD34D;
+}
+[data-theme="dark"] .ai-alert.late,
+[data-theme="dark"] .td-ai-alert.late {
+  background: rgba(220,38,38,0.15); border-color: rgba(220,38,38,0.3); color: #FCA5A5;
+}
+[data-theme="dark"] .ai-top-tip,
+[data-theme="dark"] .td-ai-tip {
+  background: rgba(14,165,233,0.12); border-color: rgba(14,165,233,0.25); color: #7DD3FC;
+}
+
+[data-theme="dark"] .risk-low,
+[data-theme="dark"] .risk-pill-low,
+[data-theme="dark"] .risk-card-low { background: rgba(22,163,74,0.18) !important; color: #4ADE80 !important; }
+[data-theme="dark"] .risk-medium,
+[data-theme="dark"] .risk-pill-medium,
+[data-theme="dark"] .risk-card-medium { background: rgba(217,119,6,0.18) !important; color: #FCD34D !important; }
+[data-theme="dark"] .risk-high,
+[data-theme="dark"] .risk-pill-high,
+[data-theme="dark"] .risk-card-high { background: rgba(220,38,38,0.18) !important; color: #FCA5A5 !important; }
+
+[data-theme="dark"] .auth-success-box {
+  background: rgba(22,163,74,0.15); border-color: rgba(22,163,74,0.3); color: #4ADE80;
+}
+
+[data-theme="dark"] .ai-copilot-panel {
+  background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-muted) 100%) !important;
+}
+
 /* ─── Reset ─── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { font-size: 16px; scroll-behavior: smooth; }

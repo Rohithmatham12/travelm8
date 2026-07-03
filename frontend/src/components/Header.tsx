@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { getUser, isDemoMode, logout } from '../utils/auth';
+import { getEffectiveTheme, toggleTheme } from '../utils/theme';
 
 const Header: React.FC = () => {
   const navigate = useNavigate();
@@ -10,7 +11,10 @@ const Header: React.FC = () => {
     ? user.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
     : (user?.email?.[0] ?? 'U').toUpperCase();
 
+  const [dark, setDark] = useState(getEffectiveTheme() === 'dark');
+
   const handleSignOut = () => { logout(); navigate('/auth'); };
+  const handleTheme = () => { const next = toggleTheme(); setDark(next === 'dark'); };
 
   return (
     <header className="header no-print">
@@ -22,15 +26,23 @@ const Header: React.FC = () => {
         </Link>
 
         <nav className="nav" aria-label="Main">
-          <NavLink to="/dashboard"        className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>Dashboard</NavLink>
-          <NavLink to="/route-planner"    className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>Route Planner</NavLink>
+          <NavLink to="/dashboard"          className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>Dashboard</NavLink>
+          <NavLink to="/route-planner"      className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>Route Planner</NavLink>
           <NavLink to="/ai-recommendations" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>Destinations</NavLink>
-          <NavLink to="/trips"            className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>My Trips</NavLink>
-          <NavLink to="/analytics"        className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>Analytics</NavLink>
+          <NavLink to="/trips"              className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>My Trips</NavLink>
+          <NavLink to="/analytics"          className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>Analytics</NavLink>
         </nav>
 
         <div className="user-menu">
           {demoMode && <span className="demo-badge">Demo</span>}
+          <button
+            className="theme-toggle"
+            onClick={handleTheme}
+            title={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+            aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {dark ? '☀️' : '🌙'}
+          </button>
           <div className="user-pill">
             <div className="user-avatar" aria-hidden="true">{initials}</div>
             <span className="user-name">{user?.name?.split(' ')[0] || user?.email || 'Traveler'}</span>

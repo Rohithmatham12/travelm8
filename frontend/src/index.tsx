@@ -1,7 +1,10 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
+import { initTheme } from './utils/theme';
 import App from './App';
+
+initTheme();
 import reportWebVitals from './reportWebVitals';
 
 const root = ReactDOM.createRoot(

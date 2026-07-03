@@ -71,6 +71,13 @@
   transition: all var(--dur) var(--ease);
 }
 .sign-out-btn:hover { color: var(--red); border-color: rgba(220,38,38,0.4); background: var(--red-dim); }
+.theme-toggle {
+  padding: 5px 8px; border-radius: var(--r-sm);
+  font-size: 1rem; line-height: 1;
+  border: 1px solid var(--border); background: transparent;
+  cursor: pointer; transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.theme-toggle:hover { background: var(--bg-muted); border-color: var(--border-2); }
 
 /* ─── Main content ─── */
 .main { flex: 1; max-width: 1200px; width: 100%; margin: 0 auto; padding: var(--sp-8) var(--sp-6) var(--sp-16); }
