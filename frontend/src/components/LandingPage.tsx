@@ -4,19 +4,24 @@ import './LandingPage.css';
 
 const FEATURES = [
   {
-    icon: '🗳️',
-    title: 'Crew stop voting',
-    desc: 'Share a code. Everyone on the trip votes on stops from their phone. Live tally, no arguing.',
+    icon: '📊',
+    title: 'Pre-trip cost estimate',
+    desc: 'Enter your MPG and gas price. TravelM8 calculates your fuel, motel, and meal costs from the actual route distance — before you spend a dollar. Splitwise can\'t do this.',
   },
   {
     icon: '💸',
-    title: 'Settle Up after the trip',
-    desc: 'Log who paid for gas, food, and motels. App calculates who owes whom — minimum transactions, zero spreadsheets.',
+    title: 'Settle Up — automatic',
+    desc: 'Tag who paid for each expense during the trip. Hit Settle Up: the app calculates exact payments to even it out. No group text, no spreadsheet.',
+  },
+  {
+    icon: '🗳️',
+    title: 'Crew stop voting',
+    desc: 'Share a code. Everyone votes on stops from their phone. Live tally — no arguing about where to eat.',
   },
   {
     icon: '🌦️',
     title: 'Weather along your route',
-    desc: 'See the forecast at your origin and destination for your exact travel date. Google Maps doesn\'t do this.',
+    desc: 'Forecast at your origin and destination for your exact travel date. Google Maps doesn\'t surface this for road trips.',
   },
   {
     icon: '⛽',
@@ -26,12 +31,7 @@ const FEATURES = [
   {
     icon: '⚠️',
     title: 'Fatigue & safety warnings',
-    desc: 'AI flags legs over 4 hours, late-night arrivals, and high-risk driving windows before you leave.',
-  },
-  {
-    icon: '📦',
-    title: 'Offline route packet',
-    desc: 'One-tap download of your full trip as a standalone HTML file. Stops, AI notes, itinerary — works with zero signal.',
+    desc: 'AI flags legs over 4 hours, late-night arrivals, and high-risk driving windows before you book anything.',
   },
 ];
 
@@ -75,21 +75,22 @@ const LandingPage: React.FC = () => (
       <div className="lp-hero-inner">
         <div className="lp-badge">The only road trip app built for groups</div>
         <h1 className="lp-h1">
-          Plan together.<br />
-          <span className="lp-h1-accent">Split fairly. Drive safe.</span>
+          Know the cost before<br />
+          <span className="lp-h1-accent">you leave the driveway.</span>
         </h1>
         <p className="lp-sub">
-          Google Maps is for one person. TravelM8 is for the whole crew — group stop voting,
-          automatic expense splitting, weather along your route, and fatigue warnings before you leave.
+          Enter your route. TravelM8 estimates fuel, motels, and meals from your actual miles and MPG
+          — then helps your crew vote on stops, tracks who paid what, and settles up after. Splitwise
+          starts when the trip ends. TravelM8 starts when you plan it.
         </p>
         <div className="lp-hero-cta">
           <Link to="/auth" className="btn btn-primary btn-lg">Plan your first trip free</Link>
           <a href="#features" className="btn btn-secondary btn-lg">See what's different</a>
         </div>
         <div className="lp-hero-stats">
-          <div className="lp-stat"><span className="lp-stat-n">Group</span><span className="lp-stat-l">stop voting</span></div>
+          <div className="lp-stat"><span className="lp-stat-n">Pre-trip</span><span className="lp-stat-l">cost estimate</span></div>
           <div className="lp-stat-div" />
-          <div className="lp-stat"><span className="lp-stat-n">Auto</span><span className="lp-stat-l">expense split</span></div>
+          <div className="lp-stat"><span className="lp-stat-n">Auto</span><span className="lp-stat-l">settle up</span></div>
           <div className="lp-stat-div" />
           <div className="lp-stat"><span className="lp-stat-n">100%</span><span className="lp-stat-l">free forever</span></div>
         </div>

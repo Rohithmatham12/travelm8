@@ -88,6 +88,8 @@ const RoutePlanner: React.FC = () => {
   const [travelers, setTravelers] = useState('');
   const [motelBudget, setMotelBudget] = useState('');
   const [mealBudget, setMealBudget] = useState('');
+  const [mpg, setMpg] = useState('25');
+  const [gasPrice, setGasPrice] = useState('3.80');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [routePlan, setRoutePlan] = useState<RouteResponse | null>(null);
@@ -342,6 +344,14 @@ const RoutePlanner: React.FC = () => {
             <label>Meal / stop</label>
             <div className="input-with-prefix"><span>$</span><input type="number" value={mealBudget} onChange={e => setMealBudget(e.target.value)} placeholder="15" /></div>
           </div>
+          <div className="form-group">
+            <label>Vehicle MPG</label>
+            <input type="number" min="5" max="150" value={mpg} onChange={e => setMpg(e.target.value)} placeholder="25" />
+          </div>
+          <div className="form-group">
+            <label>Gas price / gal</label>
+            <div className="input-with-prefix"><span>$</span><input type="number" min="1" max="10" step="0.01" value={gasPrice} onChange={e => setGasPrice(e.target.value)} placeholder="3.80" /></div>
+          </div>
         </div>
         <button className="btn-primary plan-btn" onClick={handlePlanRoute} disabled={loading || !origin.trim() || !destination.trim()}>
           {loading ? '⟳ Planning your route...' : 'Plan My Route →'}
@@ -362,6 +372,63 @@ const RoutePlanner: React.FC = () => {
               date={routePlan.routeSummary.departureDate}
             />
           )}
+          {/* Pre-trip cost estimate */}
+          {(() => {
+            const rs = routePlan.routeSummary;
+            const travelerCount = Number(travelers) || 1;
+            const miles = rs.totalDistance || 0;
+            const mpgVal = Number(mpg) || 25;
+            const gasPriceVal = Number(gasPrice) || 3.80;
+            const motelPerNight = Number(motelBudget) || 80;
+            const mealPerStop = Number(mealBudget) || 15;
+            const driveHours = (rs.estimatedDriveTime || 0) / 60;
+            const nights = Math.max(0, Math.ceil(driveHours / 8) - 1);
+            const numStops = rs.suggestedStops || 2;
+            const fuelCost = Math.round((miles / mpgVal) * gasPriceVal);
+            const motelCost = nights * motelPerNight;
+            const mealCost = Math.round(numStops * mealPerStop * travelerCount);
+            const total = fuelCost + motelCost + mealCost;
+            const perPerson = Math.round(total / travelerCount);
+            const fmt = (n: number) => '$' + n.toLocaleString();
+            return (
+              <div className="rp-cost-card">
+                <div className="rp-cost-header">
+                  <span className="rp-cost-title">📊 Pre-Trip Cost Estimate</span>
+                  <span className="rp-cost-sub">Calculated from your route — before you spend a dollar</span>
+                </div>
+                <div className="rp-cost-rows">
+                  <div className="rp-cost-row">
+                    <span className="rp-cost-label">⛽ Fuel</span>
+                    <span className="rp-cost-detail">{miles} mi ÷ {mpgVal} mpg × {fmt(gasPriceVal)}/gal</span>
+                    <span className="rp-cost-val">{fmt(fuelCost)}</span>
+                  </div>
+                  {nights > 0 && (
+                    <div className="rp-cost-row">
+                      <span className="rp-cost-label">🏨 Lodging</span>
+                      <span className="rp-cost-detail">{nights} night{nights > 1 ? 's' : ''} × {fmt(motelPerNight)}/night</span>
+                      <span className="rp-cost-val">{fmt(motelCost)}</span>
+                    </div>
+                  )}
+                  <div className="rp-cost-row">
+                    <span className="rp-cost-label">🍔 Meals</span>
+                    <span className="rp-cost-detail">{numStops} stops × {fmt(mealPerStop)}/person × {travelerCount}</span>
+                    <span className="rp-cost-val">{fmt(mealCost)}</span>
+                  </div>
+                  <div className="rp-cost-total">
+                    <span className="rp-cost-label">Total</span>
+                    <span className="rp-cost-val rp-cost-total-val">{fmt(total)}</span>
+                  </div>
+                  {travelerCount > 1 && (
+                    <div className="rp-cost-per-person">
+                      <span>Per person ({travelerCount} travelers)</span>
+                      <span className="rp-cost-pp-val">{fmt(perPerson)}</span>
+                    </div>
+                  )}
+                </div>
+                <p className="rp-cost-note">Estimates only. Track actuals in Budget Tracker → Settle Up to split costs after.</p>
+              </div>
+            );
+          })()}
           {/* Gas stations along route */}
           {gasStations.length > 0 && (
             <div className="rp-gas-panel">

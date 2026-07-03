@@ -422,6 +422,70 @@
   .highlights-grid { grid-template-columns: 1fr; }
 }
 
+/* Pre-trip cost estimate card */
+.rp-cost-card {
+  background: var(--bg-card);
+  border: 2px solid var(--orange);
+  border-radius: var(--r-lg);
+  padding: var(--sp-5);
+  margin-bottom: var(--sp-4);
+}
+.rp-cost-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: var(--sp-4);
+}
+.rp-cost-title {
+  font-size: var(--text-base);
+  font-weight: 700;
+  color: var(--text-1);
+}
+.rp-cost-sub {
+  font-size: var(--text-xs);
+  color: var(--text-3);
+}
+.rp-cost-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.rp-cost-row {
+  display: grid;
+  grid-template-columns: 90px 1fr auto;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--border);
+}
+.rp-cost-label { font-size: var(--text-sm); font-weight: 600; color: var(--text-2); }
+.rp-cost-detail { font-size: var(--text-xs); color: var(--text-3); }
+.rp-cost-val { font-size: var(--text-sm); font-weight: 700; color: var(--text-1); text-align: right; }
+.rp-cost-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--sp-3) 0 var(--sp-2);
+}
+.rp-cost-total .rp-cost-label { font-size: var(--text-base); font-weight: 800; color: var(--text-1); }
+.rp-cost-total-val { font-size: 1.35rem; font-weight: 800; color: var(--orange); }
+.rp-cost-per-person {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--sp-2) var(--sp-3);
+  background: rgba(249,115,22,0.08);
+  border-radius: var(--r);
+  font-size: var(--text-sm);
+  color: var(--text-2);
+}
+.rp-cost-pp-val { font-weight: 700; color: var(--orange); font-size: var(--text-base); }
+.rp-cost-note {
+  margin-top: var(--sp-3);
+  font-size: var(--text-xs);
+  color: var(--text-4);
+}
+
 /* Gas stations panel */
 .rp-gas-panel {
   background: var(--bg-card);
