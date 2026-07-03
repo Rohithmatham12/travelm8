@@ -1,6 +1,7 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "TravelM8",
+  "name": "TravelM8 — Road Trip Copilot",
+  "description": "AI-powered road trip planning with fatigue warnings, stop suggestions, group voting, and budget tracking.",
   "icons": [
     {
       "src": "favicon.ico",
@@ -20,6 +21,6 @@
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "theme_color": "#F97316",
+  "background_color": "#F8F9FA"
 }
