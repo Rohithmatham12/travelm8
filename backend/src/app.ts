@@ -1,6 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import { tripsRouter, sendRemindersHandler } from './routes/trips';
+import { tripsRouter, sendRemindersHandler, publicTripHandler } from './routes/trips';
 import { recommendationsRouter } from './routes/recommendations';
 import { externalRouter } from './routes/external';
 import { authRouter } from './routes/auth';
@@ -23,6 +23,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/health', healthRouter);
 app.use('/auth', authRouter);
 app.post('/trips/send-reminders', sendRemindersHandler); // no JWT — uses INTERNAL_SECRET
+app.get('/trips/public/:token', publicTripHandler);       // no JWT — public share link
 app.use('/trips', tripsRouter);
 app.use('/recommendations', recommendationsRouter);
 app.use('/route', routePlanningRouter);

@@ -32,6 +32,7 @@ export interface Trip {
     finalItinerary?: any;
   };
   spendEntries?: BudgetEntry[];
+  shareToken?: string;
   createdAt: string; // ISO date string
   updatedAt: string; // ISO date string
   ttl?: number; // For DynamoDB TTL

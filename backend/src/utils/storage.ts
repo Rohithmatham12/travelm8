@@ -262,6 +262,19 @@ export async function queryItems(
   return filterFn ? items.filter(filterFn) : items;
 }
 
+export async function getTripByShareToken(token: string): Promise<StorageItem | null> {
+  await initializeStorage();
+  if (pool) {
+    const result = await pool.query(
+      `SELECT data FROM trips WHERE data->>'shareToken' = $1 LIMIT 1`,
+      [token]
+    );
+    return result.rows[0]?.data || null;
+  }
+  const items = await readTable('trips');
+  return items.find((t: StorageItem) => t.shareToken === token) || null;
+}
+
 function matchesKey(tableName: string, item: StorageItem, key: StorageItem): boolean {
   if ((tableName === 'trips' || tableName === 'feedback') && key.userId && key.tripId) {
     return item.userId === key.userId && item.tripId === key.tripId;

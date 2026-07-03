@@ -1,12 +1,13 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { authenticateToken, AuthRequest } from '../utils/auth';
 import { TripService } from '../services/tripService';
 import { FeedbackService } from '../services/feedbackService';
 import { CreateTripRequest, UpdateTripRequest, BudgetEntry, BudgetCategory } from '../types/trip';
 import { SaveFeedbackRequest } from '../types/feedback';
-import { getItem, putItem, queryItems } from '../utils/storage';
+import { getItem, putItem, queryItems, getTripByShareToken } from '../utils/storage';
 import type { Trip } from '../types/trip';
+import { askAI } from '../services/aiService';
 import {
   successResponse,
   createdResponse,
@@ -364,8 +365,87 @@ tripsRouter.post('/:tripId/invite', async (req: AuthRequest, res) => {
   }
 });
 
+// AI packing list
+tripsRouter.post('/:tripId/packing-list', async (req: AuthRequest, res) => {
+  try {
+    const trip = await getItem('trips', { userId: req.userId!, tripId: req.params.tripId }) as Trip | null;
+    if (!trip) return notFoundResponse(res, 'Trip not found');
+
+    const origin = trip.routeData?.routeRequest?.origin || '';
+    const destination = trip.destination;
+    const startDate = trip.startDate;
+    const endDate = trip.endDate;
+    const days = Math.max(1, Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / 86400000) + 1);
+    const travelers = trip.travelers;
+
+    const prompt = `You are a road trip packing assistant. Generate a practical packing list for this trip.
+
+Trip: ${trip.title}
+Route: ${origin ? origin + ' → ' : ''}${destination}
+Departure: ${startDate}
+Duration: ${days} day${days > 1 ? 's' : ''}
+Travelers: ${travelers} person${travelers > 1 ? 's' : ''}
+
+Return ONLY valid JSON, no markdown fences, no explanation:
+{
+  "categories": [
+    { "name": "Documents & Cards", "items": ["Driver's license", "Vehicle registration", "Insurance card"] },
+    { "name": "Car Essentials", "items": ["Phone charger", "Car charger", "Paper maps backup", "Emergency kit"] },
+    { "name": "Clothing", "items": [] },
+    { "name": "Toiletries", "items": [] },
+    { "name": "Tech & Entertainment", "items": [] },
+    { "name": "Snacks & Drinks", "items": [] },
+    { "name": "Emergency Kit", "items": [] }
+  ]
+}
+Tailor items to the destination, duration, and traveler count.`;
+
+    const raw = await askAI(prompt);
+    const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    let parsed: any;
+    try { parsed = JSON.parse(cleaned); } catch { parsed = { categories: [] }; }
+    return successResponse(res, parsed);
+  } catch (error) {
+    console.error('Packing list error:', error);
+    return internalErrorResponse(res, 'Failed to generate packing list');
+  }
+});
+
+// Generate / return public share link for a trip
+tripsRouter.post('/:tripId/share-link', async (req: AuthRequest, res) => {
+  try {
+    const trip = await getItem('trips', { userId: req.userId!, tripId: req.params.tripId }) as Trip | null;
+    if (!trip) return notFoundResponse(res, 'Trip not found');
+
+    const token = trip.shareToken || uuidv4();
+    if (!trip.shareToken) {
+      await putItem('trips', { ...trip, shareToken: token, updatedAt: new Date().toISOString() });
+    }
+    const appUrl = process.env.APP_URL || 'https://travelm8app.vercel.app';
+    return successResponse(res, { url: `${appUrl}/#/share/${token}` });
+  } catch (error) {
+    console.error('Share link error:', error);
+    return internalErrorResponse(res, 'Failed to generate share link');
+  }
+});
+
+// Public trip view — no auth required (mounted in app.ts before tripsRouter)
+export async function publicTripHandler(req: Request, res: Response): Promise<void> {
+  try {
+    const { token } = req.params;
+    const trip = await getTripByShareToken(token) as Trip | null;
+    if (!trip) { res.status(404).json({ success: false, error: 'Trip not found or link expired' }); return; }
+
+    // Strip sensitive fields before returning
+    const { userId: _u, spendEntries: _s, shareToken: _t, ...safe } = trip as any;
+    res.json({ success: true, data: safe });
+  } catch (error) {
+    console.error('Public trip error:', error);
+    res.status(500).json({ success: false, error: 'Failed to load trip' });
+  }
+}
+
 // Exported directly to app.ts (bypasses tripsRouter JWT middleware)
-import { Request, Response } from 'express';
 export async function sendRemindersHandler(req: Request, res: Response): Promise<void> {
   const secret = process.env.INTERNAL_SECRET;
   const provided = (req.headers['authorization'] || '').replace('Bearer ', '');

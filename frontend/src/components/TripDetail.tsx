@@ -5,6 +5,8 @@ import { get, post, del } from '../utils/api';
 import { toast } from '../utils/toast';
 import { generatePacketHtml, downloadPacket } from '../utils/routePacket';
 import { generateICS, downloadICS } from '../utils/calendarExport';
+import { DriverRotation } from './DriverRotation';
+import { PackingList } from './PackingList';
 import './TripDetail.css';
 
 const TripDetailSkeleton = () => (
@@ -44,6 +46,8 @@ const TripDetail: React.FC = () => {
   const [fbSaving, setFbSaving] = useState(false);
   const [fbSaved, setFbSaved] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [sharing, setSharing] = useState(false);
 
   const loadTrip = useCallback(async () => {
     try {
@@ -110,6 +114,20 @@ const TripDetail: React.FC = () => {
     }
   };
 
+  const handleShare = async () => {
+    if (shareUrl) { navigator.clipboard.writeText(shareUrl); toast.success('Link copied!'); return; }
+    setSharing(true);
+    try {
+      const r = await post<{ url: string }>(`/trips/${tripId}/share-link`, {});
+      if (r.success && r.data) {
+        setShareUrl(r.data.url);
+        navigator.clipboard.writeText(r.data.url);
+        toast.success('Share link copied to clipboard!');
+      } else toast.error('Failed to create share link');
+    } catch { toast.error('Failed to create share link'); }
+    finally { setSharing(false); }
+  };
+
   const handleDelete = async () => {
     if (!tripId) return;
     setDeleting(true);
@@ -163,6 +181,9 @@ const TripDetail: React.FC = () => {
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <Link to={`/trips/${tripId}/budget`} className="td-replan-btn">$ Budget</Link>
+            <button className="td-replan-btn" onClick={handleShare} disabled={sharing}>
+              {sharing ? '…' : shareUrl ? '🔗 Copy link' : '🔗 Share'}
+            </button>
             <button className="td-replan-btn" onClick={handleDownloadPacket} disabled={downloading}>
               {downloading ? '…' : '⬇ Packet'}
             </button>
@@ -307,6 +328,17 @@ const TripDetail: React.FC = () => {
           <p className="td-no-route">This trip has no saved route plan. <Link to="/route-planner">Plan a route →</Link></p>
         </div>
       )}
+
+      {/* Driver rotation — only show when route data has drive time */}
+      {rs && rs.estimatedDriveTime > 0 && (
+        <DriverRotation
+          totalDistance={rs.totalDistance}
+          driveTimeMinutes={rs.estimatedDriveTime}
+        />
+      )}
+
+      {/* AI packing list */}
+      {tripId && <PackingList tripId={tripId} />}
 
       {/* Post-trip feedback */}
       <div className="td-feedback">

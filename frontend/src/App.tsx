@@ -23,6 +23,7 @@ import VerifyEmail from './components/VerifyEmail';
 import BudgetTracker from './components/BudgetTracker';
 import LandingPage from './components/LandingPage';
 import NotFound from './components/NotFound';
+import PublicTripView from './components/PublicTripView';
 import { isAuthenticated } from './utils/auth';
 
 function App() {
@@ -35,6 +36,7 @@ function App() {
           <Route path="/auth" element={<Auth />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/share/:token" element={<PublicTripView />} />
           <Route path="/404" element={<NotFound />} />
           <Route
             path="/*"
