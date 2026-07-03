@@ -7,6 +7,7 @@ import * as Haptics from 'expo-haptics';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { apiPost } from '../utils/api';
 import { setToken, setStoredUser } from '../utils/auth';
+import { registerPushToken } from '../utils/notifications';
 import { RootStackParamList } from '../types';
 import { useTheme, makeCommon } from '../styles/theme';
 
@@ -39,6 +40,7 @@ export default function AuthScreen({ navigation }: Props) {
       if (res.success && res.data?.token) {
         await setToken(res.data.token);
         await setStoredUser(res.data.user);
+        registerPushToken().catch(() => {}); // non-blocking
         navigation.replace('Dashboard');
       } else {
         Alert.alert('Error', res.error || 'Authentication failed');

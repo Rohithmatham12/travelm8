@@ -20,6 +20,7 @@ export interface User {
   emailVerifyExpiry?: string;
   resetToken?: string;
   resetTokenExpiry?: string;
+  pushToken?: string;
   createdAt: string;
   updatedAt: string;
 }

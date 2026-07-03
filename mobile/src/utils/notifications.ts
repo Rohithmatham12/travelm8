@@ -1,6 +1,8 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { apiPost } from './api';
 
 const KEY = (tripId: string) => `tm8_notif_${tripId}`;
 
@@ -95,4 +97,20 @@ export async function cancelTripNotifications(tripId: string): Promise<void> {
 export async function hasTripNotifications(tripId: string): Promise<boolean> {
   const raw = await AsyncStorage.getItem(KEY(tripId));
   return !!raw;
+}
+
+// Get Expo push token and register it with the backend (non-blocking, best-effort)
+export async function registerPushToken(): Promise<void> {
+  try {
+    if (!Device.isDevice) return;
+    const { status } = await Notifications.getPermissionsAsync();
+    if (status !== 'granted') return;
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId as string | undefined;
+    const token = projectId
+      ? (await Notifications.getExpoPushTokenAsync({ projectId })).data
+      : (await Notifications.getDevicePushTokenAsync()).data as string;
+    await apiPost('/auth/push-token', { pushToken: token });
+  } catch {
+    // Non-blocking — push token registration failure should never crash the app
+  }
 }

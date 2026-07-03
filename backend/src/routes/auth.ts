@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { registerUser, loginUser, generateSecureToken, User } from '../utils/auth';
+import { registerUser, loginUser, generateSecureToken, User, authenticateToken, AuthRequest } from '../utils/auth';
 import { getItem, putItem } from '../utils/storage';
 import { sendPasswordResetEmail, sendVerificationEmail } from '../utils/email';
 import { successResponse, badRequestResponse, notFoundResponse, internalErrorResponse } from '../utils/response';
@@ -162,6 +162,21 @@ authRouter.post('/resend-verification', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Resend verification error:', error);
     return internalErrorResponse(res, 'Failed to resend verification');
+  }
+});
+
+// Store Expo push token for authenticated user
+authRouter.post('/push-token', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const { pushToken } = req.body as { pushToken?: string };
+    if (!pushToken || typeof pushToken !== 'string') return badRequestResponse(res, 'pushToken required');
+    const user = await getItem('users', { userId: req.userId! }) as User | null;
+    if (!user) return notFoundResponse(res, 'User not found');
+    await putItem('users', { ...user, pushToken, updatedAt: new Date().toISOString() });
+    return successResponse(res, {}, 'Push token saved');
+  } catch (error) {
+    console.error('Push token error:', error);
+    return internalErrorResponse(res, 'Failed to save push token');
   }
 });
 

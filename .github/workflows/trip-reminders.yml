@@ -1,0 +1,23 @@
+name: Trip Reminders
+
+on:
+  schedule:
+    # Runs daily at 08:00 UTC — adjust to match your users' timezone
+    - cron: '0 8 * * *'
+  workflow_dispatch: # allow manual trigger from GitHub UI
+
+jobs:
+  send-reminders:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger reminder endpoint
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X POST "${{ secrets.VERCEL_APP_URL }}/trips/send-reminders" \
+            -H "Authorization: Bearer ${{ secrets.INTERNAL_SECRET }}" \
+            -H "Content-Type: application/json")
+          echo "Response status: $STATUS"
+          if [ "$STATUS" != "200" ]; then
+            echo "Reminder endpoint returned $STATUS — failing job"
+            exit 1
+          fi
