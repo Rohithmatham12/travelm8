@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Trip } from '../types/trip';
-import { get } from '../utils/api';
+import { get, del } from '../utils/api';
 import { getUser } from '../utils/auth';
+import { toast } from '../utils/toast';
 import './Auth.css';
 
 const statusLabel: Record<string, string> = {
@@ -28,17 +29,43 @@ const TripSkeleton = () => (
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const user = getUser();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchDest, setSearchDest] = useState('');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadTrips = useCallback(() => {
+    setLoading(true);
     get<{ trips: Trip[] }>('/trips?limit=5')
       .then(r => { if (r.success && r.data) setTrips(r.data.trips || []); })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  // Refetch on every navigation to this page
+  useEffect(() => { loadTrips(); }, [location.key, loadTrips]);
+
+  const handleDelete = async (e: React.MouseEvent, tripId: string, title: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!window.confirm(`Delete "${title}"? This cannot be undone.`)) return;
+    setDeletingId(tripId);
+    try {
+      const res = await del(`/trips/${tripId}`);
+      if (res.success) {
+        setTrips(prev => prev.filter(t => t.tripId !== tripId));
+        toast.success('Trip deleted');
+      } else {
+        toast.error(res.error || 'Failed to delete');
+      }
+    } catch {
+      toast.error('Failed to delete');
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const formatDate = (d: string) =>
     new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -112,16 +139,27 @@ const Dashboard: React.FC = () => {
         ) : (
           <div className="db-trip-list">
             {trips.map(trip => (
-              <Link key={trip.tripId} to={`/trips/${trip.tripId}`} className="db-trip-row">
-                <div className="db-trip-row-info">
-                  <strong>{trip.title}</strong>
-                  <span>{trip.destination} · {formatDate(trip.startDate)} – {formatDate(trip.endDate)}</span>
-                </div>
-                <span className={`status-chip ${statusClass[trip.status] || 'status-draft'}`}>
-                  {statusLabel[trip.status] || trip.status}
-                </span>
-                <span className="db-trip-row-chevron">›</span>
-              </Link>
+              <div key={trip.tripId} className="db-trip-row-wrap">
+                <Link to={`/trips/${trip.tripId}`} className="db-trip-row">
+                  <div className="db-trip-row-info">
+                    <strong>{trip.title}</strong>
+                    <span>{trip.destination} · {formatDate(trip.startDate)} – {formatDate(trip.endDate)}</span>
+                  </div>
+                  <span className={`status-chip ${statusClass[trip.status] || 'status-draft'}`}>
+                    {statusLabel[trip.status] || trip.status}
+                  </span>
+                  <span className="db-trip-row-chevron">›</span>
+                </Link>
+                <button
+                  className="db-trip-del"
+                  onClick={e => handleDelete(e, trip.tripId, trip.title)}
+                  disabled={deletingId === trip.tripId}
+                  title="Delete trip"
+                  aria-label={`Delete ${trip.title}`}
+                >
+                  {deletingId === trip.tripId ? '…' : '×'}
+                </button>
+              </div>
             ))}
           </div>
         )}

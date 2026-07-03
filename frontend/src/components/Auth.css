@@ -212,12 +212,15 @@
 .db-trips-link:hover { text-decoration: underline; }
 
 .db-trip-list { display: flex; flex-direction: column; }
+.db-trip-row-wrap {
+  display: flex; align-items: center; border-bottom: 1px solid var(--border);
+}
+.db-trip-row-wrap:last-child { border-bottom: none; }
 .db-trip-row {
-  display: flex; align-items: center; gap: var(--sp-3);
-  padding: var(--sp-3) var(--sp-5); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: var(--sp-3); flex: 1;
+  padding: var(--sp-3) var(--sp-5);
   text-decoration: none; transition: background var(--dur) var(--ease);
 }
-.db-trip-row:last-child { border-bottom: none; }
 .db-trip-row:hover { background: var(--bg-hover); }
 .db-trip-row-info { flex: 1; min-width: 0; }
 .db-trip-row-info strong {
@@ -226,6 +229,13 @@
 }
 .db-trip-row-info span { font-size: var(--text-xs); color: var(--text-3); }
 .db-trip-row-chevron { color: var(--text-4); font-size: 1.1rem; flex-shrink: 0; }
+.db-trip-del {
+  flex-shrink: 0; width: 32px; height: 32px; margin-right: 8px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 6px; font-size: 1.1rem; color: var(--text-3);
+  transition: color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+.db-trip-del:hover { color: var(--red); background: var(--red-dim); }
 
 /* Skeleton trips */
 .db-trips-skel { display: flex; flex-direction: column; gap: 0; }
