@@ -2,7 +2,19 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Trip } from '../types/trip';
 import { get, post, del } from '../utils/api';
+import { toast } from '../utils/toast';
 import './TripDetail.css';
+
+const TripDetailSkeleton = () => (
+  <div className="td-page">
+    <div className="skeleton" style={{ height: 14, width: 80, borderRadius: 4, marginBottom: 20 }} />
+    <div className="skeleton" style={{ height: 28, width: '60%', borderRadius: 6, marginBottom: 8 }} />
+    <div className="skeleton" style={{ height: 14, width: 200, borderRadius: 4, marginBottom: 24 }} />
+    <div className="skeleton" style={{ height: 80, borderRadius: 14, marginBottom: 12 }} />
+    <div className="skeleton" style={{ height: 160, borderRadius: 14, marginBottom: 12 }} />
+    <div className="skeleton" style={{ height: 80, borderRadius: 14, marginBottom: 12 }} />
+  </div>
+);
 
 interface TripFeedback {
   feedbackId: string;
@@ -21,6 +33,7 @@ const TripDetail: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [feedback, setFeedback] = useState<TripFeedback | null>(null);
   const [fbRating, setFbRating] = useState<number>(0);
   const [fbWorked, setFbWorked] = useState('');
@@ -33,8 +46,8 @@ const TripDetail: React.FC = () => {
     try {
       const response = await get<Trip>(`/trips/${tripId}`);
       if (response.success && response.data) setTrip(response.data);
-      else setError(response.error || 'Failed to load trip');
-    } catch { setError('Failed to load trip'); }
+      else { setError(response.error || 'Failed to load trip'); toast.error(response.error || 'Failed to load trip'); }
+    } catch { setError('Failed to load trip'); toast.error('Failed to load trip'); }
     finally { setLoading(false); }
   }, [tripId]);
 
@@ -63,20 +76,19 @@ const TripDetail: React.FC = () => {
         whatDidnt: fbDidnt,
         overallNote: fbNote,
       });
-      if (r.success && r.data) { setFeedback(r.data); setFbSaved(true); }
+      if (r.success && r.data) { setFeedback(r.data); setFbSaved(true); toast.success('Feedback saved!'); }
     } catch {}
     finally { setFbSaving(false); }
   };
 
   const handleDelete = async () => {
-    if (!tripId || !window.confirm('Delete this trip? This cannot be undone.')) return;
+    if (!tripId) return;
     setDeleting(true);
     try {
       const response = await del(`/trips/${tripId}`);
-      if (response.success) navigate('/dashboard');
-      else setError(response.error || 'Failed to delete trip');
-    } catch { setError('Failed to delete trip'); }
-    finally { setDeleting(false); }
+      if (response.success) { toast.success('Trip deleted'); navigate('/dashboard'); }
+      else { toast.error(response.error || 'Failed to delete trip'); setDeleting(false); setConfirmDelete(false); }
+    } catch { toast.error('Failed to delete trip'); setDeleting(false); setConfirmDelete(false); }
   };
 
   const fmtDate = (d: string) =>
@@ -88,7 +100,7 @@ const TripDetail: React.FC = () => {
   const fmtMins = (m: number) =>
     m >= 60 ? `${Math.floor(m / 60)}h ${m % 60 > 0 ? `${m % 60}m` : ''}`.trim() : `${m}m`;
 
-  if (loading) return <div className="td-page"><div className="td-loading">Loading…</div></div>;
+  if (loading) return <TripDetailSkeleton />;
 
   if (error || !trip) return (
     <div className="td-page">
@@ -129,9 +141,19 @@ const TripDetail: React.FC = () => {
                 ↺ Re-plan
               </button>
             )}
-            <button className="td-delete-btn" onClick={handleDelete} disabled={deleting}>
-              {deleting ? 'Deleting…' : '🗑 Delete'}
-            </button>
+            {confirmDelete ? (
+              <div className="td-confirm-delete">
+                <span>Sure?</span>
+                <button className="td-confirm-yes" onClick={handleDelete} disabled={deleting}>
+                  {deleting ? '…' : 'Delete'}
+                </button>
+                <button className="td-confirm-no" onClick={() => setConfirmDelete(false)}>Cancel</button>
+              </div>
+            ) : (
+              <button className="td-delete-btn" onClick={() => setConfirmDelete(true)}>
+                🗑 Delete
+              </button>
+            )}
           </div>
         </div>
       </div>

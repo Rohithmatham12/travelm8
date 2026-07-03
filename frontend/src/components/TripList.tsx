@@ -2,6 +2,21 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Trip } from '../types/trip';
 import { get } from '../utils/api';
+import { toast } from '../utils/toast';
+
+const TripListSkeleton = () => (
+  <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '8px 0' }}>
+    {[1,2,3,4].map(i => (
+      <div key={i} className="skeleton-row">
+        <div className="skeleton" style={{ height: 18, width: `${40 + i * 10}%`, borderRadius: 6 }} />
+        <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+          <div className="skeleton" style={{ height: 13, width: 80, borderRadius: 4 }} />
+          <div className="skeleton" style={{ height: 13, width: 60, borderRadius: 4 }} />
+        </div>
+      </div>
+    ))}
+  </div>
+);
 
 const TripList: React.FC = () => {
   const [allTrips, setAllTrips] = useState<Trip[]>([]);
@@ -30,11 +45,10 @@ const TripList: React.FC = () => {
         setAllTrips(loadedTrips);
         setTrips(filteredTrips);
       } else {
-        setError(response.error || 'Failed to load trips');
+        toast.error(response.error || 'Failed to load trips');
       }
     } catch (err) {
-      console.error('Error loading trips:', err);
-      setError('Failed to load trips');
+      toast.error('Failed to load trips');
     } finally {
       setLoading(false);
     }
@@ -80,7 +94,11 @@ const TripList: React.FC = () => {
   if (loading) {
     return (
       <div className="trip-list">
-        <div className="loading">Loading trips...</div>
+        <div className="trip-list-header">
+          <h1>My Trips</h1>
+          <Link to="/trips/new" className="btn btn-primary">New Trip</Link>
+        </div>
+        <TripListSkeleton />
       </div>
     );
   }
@@ -93,12 +111,6 @@ const TripList: React.FC = () => {
           New Trip
         </Link>
       </div>
-
-      {error && (
-        <div className="error-message">
-          {error}
-        </div>
-      )}
 
       <div className="trip-filters">
         <div className="filter-buttons">

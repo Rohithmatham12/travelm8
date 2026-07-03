@@ -192,4 +192,33 @@
 .td-feedback-saved-label { font-size: var(--text-xs); color: var(--text-3); }
 .td-feedback-btn { padding: var(--sp-2) var(--sp-5); }
 
+/* Skeleton */
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-muted) 25%, var(--border) 50%, var(--bg-muted) 75%);
+  background-size: 200% 100%;
+  animation: skel-shimmer 1.4s infinite;
+}
+@keyframes skel-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.skeleton-row { padding: 12px 0; border-bottom: 1px solid var(--border); }
+
+/* Inline delete confirm */
+.td-confirm-delete {
+  display: flex; align-items: center; gap: var(--sp-2);
+  font-size: var(--text-sm);
+}
+.td-confirm-delete span { color: var(--text-2); font-weight: 600; }
+.td-confirm-yes {
+  padding: var(--sp-1) var(--sp-3); border-radius: var(--r);
+  border: none; background: var(--red); color: #fff;
+  font-size: var(--text-sm); font-weight: 600; cursor: pointer;
+}
+.td-confirm-no {
+  padding: var(--sp-1) var(--sp-3); border-radius: var(--r);
+  border: 1px solid var(--border); background: transparent;
+  font-size: var(--text-sm); color: var(--text-3); cursor: pointer;
+}
+
 .td-meta { font-size: var(--text-xs); color: var(--text-3); margin-top: var(--sp-6); }

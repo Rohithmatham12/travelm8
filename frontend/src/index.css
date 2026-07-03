@@ -269,6 +269,19 @@ img { max-width: 100%; display: block; }
 .page-sm { max-width: 720px; margin: 0 auto; padding: var(--sp-8) var(--sp-6) var(--sp-16); }
 .page-xs { max-width: 480px; margin: 0 auto; padding: var(--sp-8) var(--sp-4) var(--sp-16); }
 
+/* ─── Skeleton shimmer ─── */
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-muted) 25%, #e4e7ec 50%, var(--bg-muted) 75%);
+  background-size: 200% 100%;
+  animation: skel-shimmer 1.4s infinite;
+  border-radius: 6px;
+}
+@keyframes skel-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.skeleton-row { padding: 12px 0; border-bottom: 1px solid var(--border); }
+
 /* ─── Print ─── */
 @media print {
   .no-print { display: none !important; }

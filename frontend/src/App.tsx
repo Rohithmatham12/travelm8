@@ -16,11 +16,13 @@ import AIRecommendations from './components/AIRecommendations';
 import Header from './components/Header';
 import ProtectedRoute from './components/ProtectedRoute';
 import RoutePlanner from './components/RoutePlanner';
+import { Toaster } from './components/Toaster';
 
 function App() {
   return (
     <Router>
       <div className="App">
+        <Toaster />
         <Routes>
           <Route path="/auth" element={<Auth />} />
           <Route
