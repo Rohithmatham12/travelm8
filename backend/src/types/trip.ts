@@ -8,6 +8,7 @@ export interface BudgetEntry {
   amount: number;
   description?: string;
   date: string; // ISO date
+  paidBy?: string; // traveler name who paid — used for settle-up calculation
 }
 
 export interface Trip {

@@ -12,6 +12,7 @@ interface BudgetEntry {
   amount: number;
   description?: string;
   date: string;
+  paidBy?: string;
 }
 
 interface BudgetData {
@@ -20,14 +21,48 @@ interface BudgetData {
   totals: { total: number; byCategory: Record<Category, number> };
 }
 
+interface Settlement { from: string; to: string; amount: number; }
+
 const CAT_LABELS: Record<Category, string> = {
   fuel: '⛽ Fuel', food: '🍔 Food', lodging: '🏨 Lodging', activities: '🎡 Activities', misc: '📦 Misc',
 };
 const CATEGORIES = Object.keys(CAT_LABELS) as Category[];
 
-function fmt(n: number) { return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }); }
+function fmt(n: number) { return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }); }
 function fmtDate(s: string) { return new Date(s + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }
 function today() { return new Date().toISOString().slice(0, 10); }
+
+function calcSettleUp(entries: BudgetEntry[], travelers: number): { perPerson: { name: string; paid: number; owes: number; balance: number }[]; settlements: Settlement[] } {
+  const tagged = entries.filter(e => e.paidBy);
+  if (tagged.length === 0 || travelers < 2) return { perPerson: [], settlements: [] };
+
+  const names = Array.from(new Set(tagged.map(e => e.paidBy!)));
+  const total = tagged.reduce((s, e) => s + e.amount, 0);
+  const share = total / travelers;
+
+  const paid: Record<string, number> = {};
+  for (const e of tagged) paid[e.paidBy!] = (paid[e.paidBy!] || 0) + e.amount;
+
+  const perPerson = names.map(n => ({
+    name: n, paid: paid[n] || 0, owes: share, balance: (paid[n] || 0) - share,
+  }));
+
+  // Minimum transactions — greedy debt settlement
+  const creditors = perPerson.filter(p => p.balance > 0.01).map(p => ({ ...p })).sort((a, b) => b.balance - a.balance);
+  const debtors = perPerson.filter(p => p.balance < -0.01).map(p => ({ ...p })).sort((a, b) => a.balance - b.balance);
+  const settlements: Settlement[] = [];
+  let ci = 0, di = 0;
+  while (ci < creditors.length && di < debtors.length) {
+    const amount = Math.min(creditors[ci].balance, -debtors[di].balance);
+    settlements.push({ from: debtors[di].name, to: creditors[ci].name, amount });
+    creditors[ci].balance -= amount;
+    debtors[di].balance += amount;
+    if (creditors[ci].balance < 0.01) ci++;
+    if (debtors[di].balance > -0.01) di++;
+  }
+
+  return { perPerson, settlements };
+}
 
 const SkeletonBudget = () => (
   <div className="bt-page">
@@ -43,21 +78,32 @@ const BudgetTracker: React.FC = () => {
   const [data, setData] = useState<BudgetData | null>(null);
   const [loading, setLoading] = useState(true);
   const [tripTitle, setTripTitle] = useState('');
+  const [travelers, setTravelers] = useState(1);
 
-  // Add-entry form state
   const [cat, setCat] = useState<Category>('food');
   const [amount, setAmount] = useState('');
   const [desc, setDesc] = useState('');
   const [date, setDate] = useState(today());
+  const [paidBy, setPaidBy] = useState('');
   const [adding, setAdding] = useState(false);
+
+  // Known payer names for quick autocomplete
+  const [knownNames, setKnownNames] = useState<string[]>([]);
 
   const load = useCallback(async () => {
     const [bRes, tRes] = await Promise.all([
       get<BudgetData>(`/trips/${tripId}/budget`),
       get<any>(`/trips/${tripId}`),
     ]);
-    if (bRes.success && bRes.data) setData(bRes.data);
-    if (tRes.success && tRes.data) setTripTitle(tRes.data.title || '');
+    if (bRes.success && bRes.data) {
+      setData(bRes.data);
+      const names = Array.from(new Set(bRes.data.spendEntries.map((e: BudgetEntry) => e.paidBy).filter(Boolean) as string[]));
+      setKnownNames(names);
+    }
+    if (tRes.success && tRes.data) {
+      setTripTitle(tRes.data.title || '');
+      setTravelers(tRes.data.travelers || 1);
+    }
     setLoading(false);
   }, [tripId]);
 
@@ -71,9 +117,14 @@ const BudgetTracker: React.FC = () => {
     setAdding(true);
     const r = await post<{ entry: BudgetEntry; totals: BudgetData['totals'] }>(`/trips/${tripId}/budget/entries`, {
       category: cat, amount: Number(amount), description: desc.trim() || undefined, date,
+      paidBy: paidBy.trim() || undefined,
     });
     if (r.success && r.data && data) {
-      setData({ ...data, spendEntries: [...data.spendEntries, r.data.entry], totals: r.data.totals });
+      const newEntries = [...data.spendEntries, r.data.entry];
+      setData({ ...data, spendEntries: newEntries, totals: r.data.totals });
+      if (paidBy.trim() && !knownNames.includes(paidBy.trim())) {
+        setKnownNames(prev => [...prev, paidBy.trim()]);
+      }
       setAmount(''); setDesc(''); setDate(today());
       toast.success('Entry added');
     } else {
@@ -86,7 +137,8 @@ const BudgetTracker: React.FC = () => {
     if (!data) return;
     const r = await del<{ totals: BudgetData['totals'] }>(`/trips/${tripId}/budget/entries/${entryId}`);
     if (r.success && r.data) {
-      setData({ ...data, spendEntries: data.spendEntries.filter(e => e.entryId !== entryId), totals: r.data.totals });
+      const newEntries = data.spendEntries.filter(e => e.entryId !== entryId);
+      setData({ ...data, spendEntries: newEntries, totals: r.data.totals });
     } else {
       toast.error('Failed to remove entry');
     }
@@ -100,6 +152,9 @@ const BudgetTracker: React.FC = () => {
   const remaining = est !== null ? est - spent : null;
   const pct = est ? Math.min((spent / est) * 100, 100) : 0;
   const over = est !== null && spent > est;
+
+  const { perPerson, settlements } = calcSettleUp(data.spendEntries, travelers);
+  const hasSettleUp = settlements.length > 0 || perPerson.length > 0;
 
   return (
     <div className="bt-page">
@@ -150,6 +205,39 @@ const BudgetTracker: React.FC = () => {
         })}
       </div>
 
+      {/* Settle Up */}
+      {hasSettleUp && (
+        <div className="bt-card bt-settle">
+          <h2 className="bt-card-title">💸 Settle Up</h2>
+          <p className="bt-settle-note">Based on {travelers} traveler{travelers > 1 ? 's' : ''} — fair share is {fmt(spent / travelers)} each</p>
+          <div className="bt-settle-people">
+            {perPerson.map(p => (
+              <div key={p.name} className="bt-settle-person">
+                <span className="bt-settle-name">{p.name}</span>
+                <span className="bt-settle-paid">paid {fmt(p.paid)}</span>
+                <span className={`bt-settle-bal ${p.balance >= 0 ? 'bt-settle-pos' : 'bt-settle-neg'}`}>
+                  {p.balance >= 0 ? `+${fmt(p.balance)} owed back` : `${fmt(-p.balance)} owes`}
+                </span>
+              </div>
+            ))}
+          </div>
+          {settlements.length > 0 && (
+            <>
+              <div className="bt-settle-divider" />
+              <h3 className="bt-settle-txns-title">Transactions to settle</h3>
+              {settlements.map((s, i) => (
+                <div key={i} className="bt-settle-txn">
+                  <span className="bt-settle-txn-from">{s.from}</span>
+                  <span className="bt-settle-txn-arrow">→</span>
+                  <span className="bt-settle-txn-to">{s.to}</span>
+                  <span className="bt-settle-txn-amt">{fmt(s.amount)}</span>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+      )}
+
       {/* Add entry */}
       <div className="bt-card">
         <h2 className="bt-card-title">Add Expense</h2>
@@ -160,6 +248,23 @@ const BudgetTracker: React.FC = () => {
           <input className="bt-input" type="number" placeholder="Amount ($)" min="0.01" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} required />
           <input className="bt-input bt-input-desc" type="text" placeholder="Description (optional)" value={desc} onChange={e => setDesc(e.target.value)} maxLength={100} />
           <input className="bt-input" type="date" value={date} onChange={e => setDate(e.target.value)} />
+          <div className="bt-paid-by-row">
+            <input
+              className="bt-input bt-paid-by"
+              type="text"
+              placeholder="Who paid? (e.g. Alex)"
+              value={paidBy}
+              onChange={e => setPaidBy(e.target.value)}
+              list="bt-payer-list"
+              maxLength={40}
+            />
+            {knownNames.length > 0 && (
+              <datalist id="bt-payer-list">
+                {knownNames.map(n => <option key={n} value={n} />)}
+              </datalist>
+            )}
+            <span className="bt-paid-by-hint">for Settle Up</span>
+          </div>
           <button type="submit" className="bt-add-btn" disabled={adding}>{adding ? 'Adding…' : '+ Add'}</button>
         </form>
       </div>
@@ -176,10 +281,10 @@ const BudgetTracker: React.FC = () => {
                 <span className="bt-entry-cat">{CAT_LABELS[e.category].split(' ')[0]}</span>
                 <div className="bt-entry-body">
                   <span className="bt-entry-desc">{e.description || CAT_LABELS[e.category].slice(2)}</span>
-                  <span className="bt-entry-date">{fmtDate(e.date)}</span>
+                  <span className="bt-entry-meta">{fmtDate(e.date)}{e.paidBy ? ` · ${e.paidBy}` : ''}</span>
                 </div>
                 <span className="bt-entry-amt">{fmt(e.amount)}</span>
-                <button className="bt-entry-del" onClick={() => removeEntry(e.entryId)} title="Remove">×</button>
+                <button className="bt-entry-del" onClick={() => removeEntry(e.entryId)} aria-label="Remove expense">×</button>
               </li>
             ))}
           </ul>

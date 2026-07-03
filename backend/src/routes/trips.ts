@@ -295,12 +295,14 @@ tripsRouter.post('/:tripId/budget/entries', async (req: AuthRequest, res) => {
     const trip = await getItem('trips', { userId: req.userId!, tripId: req.params.tripId }) as Trip | null;
     if (!trip) return notFoundResponse(res, 'Trip not found');
 
+    const { paidBy } = req.body;
     const entry: BudgetEntry = {
       entryId: uuidv4(),
       category,
       amount: amt,
       description: description?.trim() || undefined,
       date: date || new Date().toISOString().slice(0, 10),
+      paidBy: typeof paidBy === 'string' && paidBy.trim() ? paidBy.trim() : undefined,
     };
     const entries = [...(trip.spendEntries || []), entry];
     await putItem('trips', { ...trip, spendEntries: entries, updatedAt: new Date().toISOString() });

@@ -4,6 +4,7 @@ import { post, get } from '../utils/api';
 import { generatePacketHtml, downloadPacket } from '../utils/routePacket';
 import { generateICS, downloadICS } from '../utils/calendarExport';
 import { WeatherBar } from './WeatherBar';
+import { getGasStationsAlongRoute, GasStation } from '../utils/gasStations';
 import './RoutePlanner.css';
 
 interface RouteStop {
@@ -96,6 +97,8 @@ const RoutePlanner: React.FC = () => {
   const [finalItinerary, setFinalItinerary] = useState<any>(null);
   const [stopInsights, setStopInsights] = useState<Record<string, StopInsight | 'loading'>>({});
   const [tripSaveState, setTripSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [gasStations, setGasStations] = useState<GasStation[]>([]);
+  const [gasOpen, setGasOpen] = useState(false);
 
   // Group voting state
   const [voteSession, setVoteSession] = useState<VoteSession | null>(null);
@@ -135,6 +138,12 @@ const RoutePlanner: React.FC = () => {
         const rests = result.data.stopOptionSets.map((s) => s.restaurants[0]?.id).filter(Boolean) as string[];
         const motel = result.data.budgetFriendlyMotels[0]?.id || result.data.topRatedMotels[0]?.id || '';
         setSelectedPois(pois); setSelectedRestaurants(rests); setSelectedMotel(motel);
+        // Fetch gas stations along route in background
+        const oc = result.data.routeSummary.originCoords;
+        const dc = result.data.routeSummary.destinationCoords;
+        if (oc && dc) {
+          getGasStationsAlongRoute(oc, dc).then(setGasStations);
+        }
       } else { setError(result.error || 'Failed to plan route'); }
     } catch (err: any) { setError(err.message || 'Failed to plan route'); }
     finally { setLoading(false); }
@@ -352,6 +361,26 @@ const RoutePlanner: React.FC = () => {
               destinationCoords={routePlan.routeSummary.destinationCoords ?? null}
               date={routePlan.routeSummary.departureDate}
             />
+          )}
+          {/* Gas stations along route */}
+          {gasStations.length > 0 && (
+            <div className="rp-gas-panel">
+              <button className="rp-gas-toggle" onClick={() => setGasOpen(o => !o)}>
+                ⛽ {gasStations.length} gas stations along your route
+                <span className="rp-gas-chevron">{gasOpen ? '▲' : '▼'}</span>
+              </button>
+              {gasOpen && (
+                <div className="rp-gas-list">
+                  {gasStations.map(s => (
+                    <div key={s.id} className="rp-gas-item">
+                      <span className="rp-gas-icon">⛽</span>
+                      <span className="rp-gas-name">{s.brand || s.name || s.operator || 'Gas Station'}</span>
+                    </div>
+                  ))}
+                  <p className="rp-gas-note">Locations are within your route corridor. Verify hours before departure.</p>
+                </div>
+              )}
+            </div>
           )}
           {/* AI Copilot Panel */}
           {routePlan.aiInsights && (

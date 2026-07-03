@@ -84,3 +84,35 @@
   transition: color var(--dur) var(--ease);
 }
 .bt-entry-del:hover { color: var(--red); }
+.bt-entry-meta { font-size: var(--text-xs); color: var(--text-4); }
+
+/* Who paid / paidBy row */
+.bt-paid-by-row { display: flex; align-items: center; gap: var(--sp-2); flex: 1 1 180px; min-width: 0; }
+.bt-paid-by { flex: 1; min-width: 0; }
+.bt-paid-by-hint { font-size: 11px; color: var(--text-4); white-space: nowrap; }
+
+/* Settle Up card */
+.bt-settle { border-color: var(--orange); }
+.bt-settle-note { font-size: var(--text-sm); color: var(--text-3); margin-bottom: var(--sp-4); }
+.bt-settle-people { display: flex; flex-direction: column; gap: var(--sp-2); }
+.bt-settle-person {
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--bg-muted); border-radius: var(--r);
+}
+.bt-settle-name { font-weight: 700; font-size: var(--text-sm); color: var(--text-1); flex: 0 0 auto; min-width: 80px; }
+.bt-settle-paid { font-size: var(--text-sm); color: var(--text-3); flex: 1; }
+.bt-settle-bal { font-size: var(--text-sm); font-weight: 600; flex-shrink: 0; text-align: right; }
+.bt-settle-pos { color: #16a34a; }
+.bt-settle-neg { color: #dc2626; }
+.bt-settle-divider { height: 1px; background: var(--border); margin: var(--sp-4) 0; }
+.bt-settle-txns-title { font-size: var(--text-sm); font-weight: 700; color: var(--text-2); margin-bottom: var(--sp-3); }
+.bt-settle-txn {
+  display: flex; align-items: center; gap: var(--sp-2);
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--border);
+}
+.bt-settle-txn:last-child { border-bottom: none; }
+.bt-settle-txn-from, .bt-settle-txn-to { font-size: var(--text-sm); font-weight: 600; color: var(--text-1); }
+.bt-settle-txn-arrow { font-size: var(--text-sm); color: var(--text-4); flex: 1; text-align: center; }
+.bt-settle-txn-amt { font-size: var(--text-sm); font-weight: 700; color: var(--orange); }
