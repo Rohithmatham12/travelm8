@@ -70,4 +70,5 @@ export type RootStackParamList = {
   RouteResults: { routePlan: RouteResponse; routeRequest: any };
   TripDetail: { tripId: string };
   TripList: undefined;
+  BudgetTracker: { tripId: string; tripTitle?: string };
 };

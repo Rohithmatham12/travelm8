@@ -16,6 +16,7 @@ import RoutePlannerScreen from './src/screens/RoutePlannerScreen';
 import RouteResultsScreen from './src/screens/RouteResultsScreen';
 import TripDetailScreen from './src/screens/TripDetailScreen';
 import TripListScreen from './src/screens/TripListScreen';
+import BudgetTrackerScreen from './src/screens/BudgetTrackerScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -59,6 +60,7 @@ export default function App() {
           <Stack.Screen name="RouteResults" component={RouteResultsScreen} options={{ title: 'Your Route' }} />
           <Stack.Screen name="TripDetail" component={TripDetailScreen} options={{ title: 'Trip Detail' }} />
           <Stack.Screen name="TripList" component={TripListScreen} options={{ title: 'My Trips' }} />
+          <Stack.Screen name="BudgetTracker" component={BudgetTrackerScreen} options={{ title: 'Budget Tracker' }} />
         </Stack.Navigator>
       </NavigationContainer>
     </GestureHandlerRootView>

@@ -133,6 +133,7 @@ const TripDetail: React.FC = () => {
             </p>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
+            <Link to={`/trips/${tripId}/budget`} className="td-replan-btn">$ Budget</Link>
             {rq && (
               <button
                 className="td-replan-btn"

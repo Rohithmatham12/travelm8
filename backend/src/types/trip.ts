@@ -1,5 +1,15 @@
 // Trip-related types and interfaces
 
+export type BudgetCategory = 'fuel' | 'food' | 'lodging' | 'activities' | 'misc';
+
+export interface BudgetEntry {
+  entryId: string;
+  category: BudgetCategory;
+  amount: number;
+  description?: string;
+  date: string; // ISO date
+}
+
 export interface Trip {
   tripId: string;
   userId: string;
@@ -20,6 +30,7 @@ export interface Trip {
     routePlan?: any;
     finalItinerary?: any;
   };
+  spendEntries?: BudgetEntry[];
   createdAt: string; // ISO date string
   updatedAt: string; // ISO date string
   ttl?: number; // For DynamoDB TTL

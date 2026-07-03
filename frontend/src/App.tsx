@@ -20,6 +20,7 @@ import { Toaster } from './components/Toaster';
 import Analytics from './components/Analytics';
 import ResetPassword from './components/ResetPassword';
 import VerifyEmail from './components/VerifyEmail';
+import BudgetTracker from './components/BudgetTracker';
 
 function App() {
   return (
@@ -49,6 +50,7 @@ function App() {
                       <Route path="/trips/:tripId/edit" element={<EditTrip />} />
                       <Route path="/trips/:tripId/itinerary" element={<ItineraryManager />} />
                       <Route path="/trips/:tripId/share" element={<TripSharing />} />
+                      <Route path="/trips/:tripId/budget" element={<BudgetTracker />} />
                       <Route path="/analytics" element={<Analytics />} />
                     </Routes>
                   </main>

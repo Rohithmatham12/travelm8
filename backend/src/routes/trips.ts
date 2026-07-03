@@ -1,9 +1,12 @@
 import { Router } from 'express';
+import { v4 as uuidv4 } from 'uuid';
 import { authenticateToken, AuthRequest } from '../utils/auth';
 import { TripService } from '../services/tripService';
 import { FeedbackService } from '../services/feedbackService';
-import { CreateTripRequest, UpdateTripRequest } from '../types/trip';
+import { CreateTripRequest, UpdateTripRequest, BudgetEntry, BudgetCategory } from '../types/trip';
 import { SaveFeedbackRequest } from '../types/feedback';
+import { getItem, putItem } from '../utils/storage';
+import type { Trip } from '../types/trip';
 import {
   successResponse,
   createdResponse,
@@ -254,6 +257,69 @@ tripsRouter.get('/:tripId/feedback', async (req: AuthRequest, res) => {
   } catch (error) {
     console.error('Error getting feedback:', error);
     return internalErrorResponse(res, 'Failed to get feedback');
+  }
+});
+
+// ── Budget tracker ──────────────────────────────────────────────────────────
+
+const VALID_CATEGORIES: BudgetCategory[] = ['fuel', 'food', 'lodging', 'activities', 'misc'];
+
+function budgetTotals(entries: BudgetEntry[]) {
+  const byCategory: Record<BudgetCategory, number> = { fuel: 0, food: 0, lodging: 0, activities: 0, misc: 0 };
+  for (const e of entries) byCategory[e.category] = (byCategory[e.category] || 0) + e.amount;
+  const total = Object.values(byCategory).reduce((s, v) => s + v, 0);
+  return { total, byCategory };
+}
+
+tripsRouter.get('/:tripId/budget', async (req: AuthRequest, res) => {
+  try {
+    const trip = await getItem('trips', { userId: req.userId!, tripId: req.params.tripId }) as Trip | null;
+    if (!trip) return notFoundResponse(res, 'Trip not found');
+    const entries = trip.spendEntries || [];
+    const totals = budgetTotals(entries);
+    return successResponse(res, { estimatedBudget: trip.budget ?? null, spendEntries: entries, totals });
+  } catch (error) {
+    console.error('Budget GET error:', error);
+    return internalErrorResponse(res, 'Failed to fetch budget');
+  }
+});
+
+tripsRouter.post('/:tripId/budget/entries', async (req: AuthRequest, res) => {
+  try {
+    const { category, amount, description, date } = req.body;
+    if (!VALID_CATEGORIES.includes(category)) return badRequestResponse(res, `category must be one of: ${VALID_CATEGORIES.join(', ')}`);
+    const amt = Number(amount);
+    if (!amt || amt <= 0) return badRequestResponse(res, 'amount must be a positive number');
+
+    const trip = await getItem('trips', { userId: req.userId!, tripId: req.params.tripId }) as Trip | null;
+    if (!trip) return notFoundResponse(res, 'Trip not found');
+
+    const entry: BudgetEntry = {
+      entryId: uuidv4(),
+      category,
+      amount: amt,
+      description: description?.trim() || undefined,
+      date: date || new Date().toISOString().slice(0, 10),
+    };
+    const entries = [...(trip.spendEntries || []), entry];
+    await putItem('trips', { ...trip, spendEntries: entries, updatedAt: new Date().toISOString() });
+    return successResponse(res, { entry, totals: budgetTotals(entries) }, 'Entry added');
+  } catch (error) {
+    console.error('Budget POST error:', error);
+    return internalErrorResponse(res, 'Failed to add entry');
+  }
+});
+
+tripsRouter.delete('/:tripId/budget/entries/:entryId', async (req: AuthRequest, res) => {
+  try {
+    const trip = await getItem('trips', { userId: req.userId!, tripId: req.params.tripId }) as Trip | null;
+    if (!trip) return notFoundResponse(res, 'Trip not found');
+    const entries = (trip.spendEntries || []).filter(e => e.entryId !== req.params.entryId);
+    await putItem('trips', { ...trip, spendEntries: entries, updatedAt: new Date().toISOString() });
+    return successResponse(res, { totals: budgetTotals(entries) }, 'Entry removed');
+  } catch (error) {
+    console.error('Budget DELETE error:', error);
+    return internalErrorResponse(res, 'Failed to remove entry');
   }
 });
 

@@ -335,6 +335,17 @@ export default function TripDetailScreen({ route, navigation }: Props) {
         </View>
       )}
 
+      {/* Budget Tracker */}
+      <TouchableOpacity
+        style={[s.replanBtn, { backgroundColor: c.card, borderWidth: 1, borderColor: c.orange }]}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          navigation.navigate('BudgetTracker', { tripId: trip.tripId, tripTitle: trip.title });
+        }}
+      >
+        <Text style={[s.replanBtnText, { color: c.orange }]}>$ Budget Tracker</Text>
+      </TouchableOpacity>
+
       {/* Re-plan */}
       {rq && (
         <TouchableOpacity
