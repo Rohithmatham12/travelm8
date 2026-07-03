@@ -1,8 +1,10 @@
 import jwt from 'jsonwebtoken';
 import type { SignOptions } from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import { Request, Response, NextFunction } from 'express';
-import { putItem, getItem } from './storage';
+import { putItem, getItem, updateItem } from './storage';
+import { sendVerificationEmail } from './email';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'travelm8-secret-key-change-in-production';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
@@ -13,8 +15,17 @@ export interface User {
   password: string; // hashed
   name?: string;
   role: 'traveler' | 'admin';
+  emailVerified: boolean;
+  emailVerifyToken?: string;
+  emailVerifyExpiry?: string;
+  resetToken?: string;
+  resetTokenExpiry?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export function generateSecureToken(): string {
+  return crypto.randomBytes(32).toString('hex');
 }
 
 export interface AuthRequest extends Request {
@@ -132,17 +143,24 @@ export async function registerUser(email: string, password: string, name?: strin
   const hashedPassword = await hashPassword(password);
   const now = new Date().toISOString();
 
+  const verifyToken = generateSecureToken();
+  const verifyExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
   const user: User = {
     userId,
     email,
     password: hashedPassword,
     name,
     role: 'traveler',
+    emailVerified: false,
+    emailVerifyToken: verifyToken,
+    emailVerifyExpiry: verifyExpiry,
     createdAt: now,
-    updatedAt: now
+    updatedAt: now,
   };
 
   await putItem('users', user);
+  sendVerificationEmail(email, verifyToken).catch(() => {}); // non-blocking
 
   const token = generateToken(userId, email);
 

@@ -18,6 +18,8 @@ import ProtectedRoute from './components/ProtectedRoute';
 import RoutePlanner from './components/RoutePlanner';
 import { Toaster } from './components/Toaster';
 import Analytics from './components/Analytics';
+import ResetPassword from './components/ResetPassword';
+import VerifyEmail from './components/VerifyEmail';
 
 function App() {
   return (
@@ -26,6 +28,8 @@ function App() {
         <Toaster />
         <Routes>
           <Route path="/auth" element={<Auth />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
           <Route
             path="/*"
             element={
