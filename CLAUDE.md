@@ -113,7 +113,7 @@ cd frontend && npm start     # starts on :3000
 - [ ] AI stop insights shown on each stop card
 - [ ] Offline route PDF packet download
 - [ ] Group consensus voting (each traveler votes on stops)
-- [ ] Post-trip "what worked" feedback
+- [x] Post-trip "what worked" feedback
 - [ ] React Native mobile app via Expo (after web is solid)
 
 ## Common Pitfalls

@@ -15,7 +15,7 @@ interface StorageItem {
   [key: string]: any;
 }
 
-const tableNames = ['users', 'trips'];
+const tableNames = ['users', 'trips', 'feedback'];
 
 if (!pool && !fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
@@ -53,6 +53,16 @@ async function ensurePostgresTables(): Promise<void> {
   `);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS trips (
+      user_id TEXT NOT NULL,
+      trip_id TEXT NOT NULL,
+      data JSONB NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (user_id, trip_id)
+    );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS feedback (
       user_id TEXT NOT NULL,
       trip_id TEXT NOT NULL,
       data JSONB NOT NULL,
@@ -127,6 +137,17 @@ export async function putItem(tableName: string, item: StorageItem): Promise<voi
       return;
     }
 
+    if (tableName === 'feedback') {
+      await pool.query(
+        `INSERT INTO feedback (user_id, trip_id, data, created_at, updated_at)
+         VALUES ($1, $2, $3, NOW(), NOW())
+         ON CONFLICT (user_id, trip_id)
+         DO UPDATE SET data = EXCLUDED.data, updated_at = NOW()`,
+        [item.userId, item.tripId, item]
+      );
+      return;
+    }
+
     await pool.query(
       `INSERT INTO trips (user_id, trip_id, data, created_at, updated_at)
        VALUES ($1, $2, $3, NOW(), NOW())
@@ -158,6 +179,14 @@ export async function getItem(tableName: string, key: StorageItem): Promise<Stor
       const result = key.userId
         ? await pool.query('SELECT data FROM users WHERE user_id = $1 LIMIT 1', [key.userId])
         : await pool.query('SELECT data FROM users WHERE lower(email) = lower($1) LIMIT 1', [key.email]);
+      return result.rows[0]?.data || null;
+    }
+
+    if (tableName === 'feedback') {
+      const result = await pool.query(
+        'SELECT data FROM feedback WHERE user_id = $1 AND trip_id = $2 LIMIT 1',
+        [key.userId, key.tripId]
+      );
       return result.rows[0]?.data || null;
     }
 
@@ -207,7 +236,7 @@ export async function queryItems(
 }
 
 function matchesKey(tableName: string, item: StorageItem, key: StorageItem): boolean {
-  if (tableName === 'trips' && key.userId && key.tripId) {
+  if ((tableName === 'trips' || tableName === 'feedback') && key.userId && key.tripId) {
     return item.userId === key.userId && item.tripId === key.tripId;
   }
   if (tableName === 'users') {

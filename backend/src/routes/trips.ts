@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import { authenticateToken, AuthRequest } from '../utils/auth';
 import { TripService } from '../services/tripService';
+import { FeedbackService } from '../services/feedbackService';
 import { CreateTripRequest, UpdateTripRequest } from '../types/trip';
+import { SaveFeedbackRequest } from '../types/feedback';
 import {
   successResponse,
   createdResponse,
@@ -12,6 +14,7 @@ import {
 
 export const tripsRouter = Router();
 const tripService = new TripService();
+const feedbackService = new FeedbackService();
 
 // All routes require authentication
 tripsRouter.use(authenticateToken);
@@ -216,6 +219,41 @@ tripsRouter.put('/:tripId/itinerary/:itemId', async (req: AuthRequest, res) => {
   } catch (error) {
     console.error('Error updating itinerary item:', error);
     internalErrorResponse(res, 'Failed to update itinerary item');
+  }
+});
+
+// Save post-trip feedback (upsert — one per trip)
+tripsRouter.post('/:tripId/feedback', async (req: AuthRequest, res) => {
+  try {
+    const userId = req.userId!;
+    const { tripId } = req.params;
+    const { rating, whatWorked, whatDidnt, overallNote } = req.body as SaveFeedbackRequest;
+
+    if (!rating || rating < 1 || rating > 5) return badRequestResponse(res, 'rating must be 1–5');
+
+    const feedback = await feedbackService.saveFeedback(userId, tripId, {
+      rating,
+      whatWorked: whatWorked || '',
+      whatDidnt: whatDidnt || '',
+      overallNote: overallNote || '',
+    });
+    return successResponse(res, feedback, 'Feedback saved');
+  } catch (error) {
+    console.error('Error saving feedback:', error);
+    return internalErrorResponse(res, 'Failed to save feedback');
+  }
+});
+
+// Get post-trip feedback
+tripsRouter.get('/:tripId/feedback', async (req: AuthRequest, res) => {
+  try {
+    const userId = req.userId!;
+    const { tripId } = req.params;
+    const feedback = await feedbackService.getFeedback(userId, tripId);
+    return successResponse(res, feedback);
+  } catch (error) {
+    console.error('Error getting feedback:', error);
+    return internalErrorResponse(res, 'Failed to get feedback');
   }
 });
 

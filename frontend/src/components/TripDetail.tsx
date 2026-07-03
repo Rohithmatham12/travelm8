@@ -1,8 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Trip } from '../types/trip';
-import { get, del } from '../utils/api';
+import { get, post, del } from '../utils/api';
 import './TripDetail.css';
+
+interface TripFeedback {
+  feedbackId: string;
+  tripId: string;
+  rating: 1 | 2 | 3 | 4 | 5;
+  whatWorked: string;
+  whatDidnt: string;
+  overallNote: string;
+  updatedAt: string;
+}
 
 const TripDetail: React.FC = () => {
   const { tripId } = useParams<{ tripId: string }>();
@@ -11,6 +21,13 @@ const TripDetail: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [feedback, setFeedback] = useState<TripFeedback | null>(null);
+  const [fbRating, setFbRating] = useState<number>(0);
+  const [fbWorked, setFbWorked] = useState('');
+  const [fbDidnt, setFbDidnt] = useState('');
+  const [fbNote, setFbNote] = useState('');
+  const [fbSaving, setFbSaving] = useState(false);
+  const [fbSaved, setFbSaved] = useState(false);
 
   const loadTrip = useCallback(async () => {
     try {
@@ -22,6 +39,34 @@ const TripDetail: React.FC = () => {
   }, [tripId]);
 
   useEffect(() => { if (tripId) loadTrip(); }, [tripId, loadTrip]);
+
+  useEffect(() => {
+    if (!tripId) return;
+    get<TripFeedback>(`/trips/${tripId}/feedback`).then(r => {
+      if (r.success && r.data) {
+        setFeedback(r.data);
+        setFbRating(r.data.rating);
+        setFbWorked(r.data.whatWorked);
+        setFbDidnt(r.data.whatDidnt);
+        setFbNote(r.data.overallNote);
+      }
+    }).catch(() => {});
+  }, [tripId]);
+
+  const handleSaveFeedback = async () => {
+    if (!tripId || fbRating < 1) return;
+    setFbSaving(true); setFbSaved(false);
+    try {
+      const r = await post<TripFeedback>(`/trips/${tripId}/feedback`, {
+        rating: fbRating,
+        whatWorked: fbWorked,
+        whatDidnt: fbDidnt,
+        overallNote: fbNote,
+      });
+      if (r.success && r.data) { setFeedback(r.data); setFbSaved(true); }
+    } catch {}
+    finally { setFbSaving(false); }
+  };
 
   const handleDelete = async () => {
     if (!tripId || !window.confirm('Delete this trip? This cannot be undone.')) return;
@@ -183,6 +228,65 @@ const TripDetail: React.FC = () => {
           <p className="td-no-route">This trip has no saved route plan. <Link to="/route-planner">Plan a route →</Link></p>
         </div>
       )}
+
+      {/* Post-trip feedback */}
+      <div className="td-feedback">
+        <h2 className="td-section-title">How did it go?</h2>
+        <div className="td-stars">
+          {[1, 2, 3, 4, 5].map(n => (
+            <button
+              key={n}
+              className={`td-star${fbRating >= n ? ' td-star-on' : ''}`}
+              onClick={() => setFbRating(n)}
+              aria-label={`${n} star`}
+            >★</button>
+          ))}
+          {fbRating > 0 && (
+            <span className="td-star-label">
+              {['', 'Rough', 'Okay', 'Good', 'Great', 'Amazing'][fbRating]}
+            </span>
+          )}
+        </div>
+        <div className="td-feedback-fields">
+          <div className="td-feedback-field">
+            <label>What worked well?</label>
+            <textarea
+              value={fbWorked}
+              onChange={e => setFbWorked(e.target.value)}
+              placeholder="Stops, timing, route, food…"
+              rows={2}
+            />
+          </div>
+          <div className="td-feedback-field">
+            <label>What would you change?</label>
+            <textarea
+              value={fbDidnt}
+              onChange={e => setFbDidnt(e.target.value)}
+              placeholder="Traffic, detours, missed spots…"
+              rows={2}
+            />
+          </div>
+          <div className="td-feedback-field">
+            <label>Overall note</label>
+            <textarea
+              value={fbNote}
+              onChange={e => setFbNote(e.target.value)}
+              placeholder="Anything else worth remembering…"
+              rows={2}
+            />
+          </div>
+        </div>
+        <div className="td-feedback-footer">
+          {feedback && <span className="td-feedback-saved-label">Last saved {fmtDate(feedback.updatedAt)}</span>}
+          <button
+            className="btn-primary td-feedback-btn"
+            onClick={handleSaveFeedback}
+            disabled={fbRating < 1 || fbSaving}
+          >
+            {fbSaving ? 'Saving…' : fbSaved ? '✓ Saved' : feedback ? 'Update feedback' : 'Save feedback'}
+          </button>
+        </div>
+      </div>
 
       <p className="td-meta">Saved {fmtDate(trip.createdAt)}</p>
     </div>
