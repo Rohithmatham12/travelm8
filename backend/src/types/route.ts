@@ -72,6 +72,9 @@ export interface RouteSummary {
   suggestedStops: number;
   routePolyline?: string;
   majorCities: string[];
+  originCoords?: { lat: number; lng: number } | null;
+  destinationCoords?: { lat: number; lng: number } | null;
+  departureDate?: string | null;
 }
 
 export interface OfflineMapPlan {

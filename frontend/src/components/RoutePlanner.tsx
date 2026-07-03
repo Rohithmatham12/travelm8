@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { post, get } from '../utils/api';
 import { generatePacketHtml, downloadPacket } from '../utils/routePacket';
 import { generateICS, downloadICS } from '../utils/calendarExport';
+import { WeatherBar } from './WeatherBar';
 import './RoutePlanner.css';
 
 interface RouteStop {
@@ -39,6 +40,9 @@ interface RouteResponse {
   routeSummary: {
     origin: string; destination: string; totalDistance: number;
     estimatedDriveTime: number; suggestedStops: number; majorCities: string[];
+    originCoords?: { lat: number; lng: number } | null;
+    destinationCoords?: { lat: number; lng: number } | null;
+    departureDate?: string | null;
   };
   stopOptionSets: StopOptionSet[];
   topRatedMotels: RouteStop[]; budgetFriendlyMotels: RouteStop[];
@@ -339,6 +343,16 @@ const RoutePlanner: React.FC = () => {
 
       {routePlan && (
         <>
+          {/* Weather forecast for travel date */}
+          {routePlan.routeSummary.departureDate && (
+            <WeatherBar
+              origin={routePlan.routeSummary.origin}
+              destination={routePlan.routeSummary.destination}
+              originCoords={routePlan.routeSummary.originCoords ?? null}
+              destinationCoords={routePlan.routeSummary.destinationCoords ?? null}
+              date={routePlan.routeSummary.departureDate}
+            />
+          )}
           {/* AI Copilot Panel */}
           {routePlan.aiInsights && (
             <div className="ai-copilot-panel">

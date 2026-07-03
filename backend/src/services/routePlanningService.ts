@@ -678,7 +678,10 @@ After you make your selections, I'll generate:
         totalDistance: estimatedDistance,
         estimatedDriveTime: estimatedTime,
         suggestedStops,
-        majorCities: [request.origin, request.destination]
+        majorCities: [request.origin, request.destination],
+        originCoords: originCoords ? { lat: originCoords.lat, lng: originCoords.lng } : null,
+        destinationCoords: destinationCoords ? { lat: destinationCoords.lat, lng: destinationCoords.lng } : null,
+        departureDate: request.departureDate || null,
       },
       stopOptionSets,
       topRatedMotels: motels.slice(0, 3),
