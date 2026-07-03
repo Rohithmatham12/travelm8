@@ -64,6 +64,17 @@ export default function TripDetailScreen({ route, navigation }: Props) {
   const [fbSaving, setFbSaving] = useState(false);
   const [fbSaved, setFbSaved] = useState(false);
   const [fbUpdatedAt, setFbUpdatedAt] = useState<string | null>(null);
+  // Packing list
+  const [plCats, setPlCats] = useState<{ name: string; items: string[] }[]>([]);
+  const [plLoading, setPlLoading] = useState(false);
+  const [plGenerated, setPlGenerated] = useState(false);
+  const [plChecked, setPlChecked] = useState<{ [key: string]: boolean }>({});
+  // Driver rotation
+  const [drOpen, setDrOpen] = useState(false);
+  const [drNames, setDrNames] = useState(['', '']);
+  const [drSegHours, setDrSegHours] = useState(2);
+  // Public share link
+  const [publicLinkLoading, setPublicLinkLoading] = useState(false);
   const [mapCoords, setMapCoords] = useState<{
     origin: { lat: number; lon: number } | null;
     dest: { lat: number; lon: number } | null;
@@ -161,6 +172,41 @@ export default function TripDetailScreen({ route, navigation }: Props) {
       await Share.share({ message, title: trip.title });
     } catch {}
   };
+
+  const handleGeneratePacking = async () => {
+    setPlLoading(true);
+    try {
+      const r = await apiPost<{ categories: { name: string; items: string[] }[] }>(`/trips/${tripId}/packing-list`, {});
+      if (r.success && r.data?.categories?.length) {
+        setPlCats(r.data.categories); setPlGenerated(true);
+      } else Alert.alert('Error', 'Failed to generate list. Try again.');
+    } catch { Alert.alert('Error', 'Failed to generate list'); }
+    finally { setPlLoading(false); }
+  };
+
+  const handlePublicLink = async () => {
+    if (!trip) return;
+    setPublicLinkLoading(true);
+    try {
+      const r = await apiPost<{ url: string }>(`/trips/${tripId}/share-link`, {});
+      if (r.success && r.data?.url) {
+        await Share.share({ message: `Check out my road trip: ${r.data.url}`, title: trip.title });
+      } else Alert.alert('Error', 'Failed to create link');
+    } catch { Alert.alert('Error', 'Failed to create link'); }
+    finally { setPublicLinkLoading(false); }
+  };
+
+  function buildDriverSchedule(names: string[], totalMiles: number, totalMin: number, segMin: number) {
+    if (!names.length || totalMiles <= 0 || totalMin <= 0) return [];
+    const numSegs = Math.ceil(totalMin / segMin);
+    const milesPerSeg = totalMiles / numSegs;
+    return Array.from({ length: numSegs }, (_, i) => ({
+      driver: names[i % names.length],
+      fromMile: Math.round(i * milesPerSeg),
+      toMile: Math.round(i === numSegs - 1 ? totalMiles : (i + 1) * milesPerSeg),
+      durationMin: i === numSegs - 1 ? Math.round(totalMin - i * segMin) : segMin,
+    }));
+  }
 
   const handleDelete = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -373,6 +419,128 @@ export default function TripDetailScreen({ route, navigation }: Props) {
         </TouchableOpacity>
       )}
 
+      {/* Driver Rotation */}
+      {rs && rs.estimatedDriveTime > 0 && (
+        <View style={[common.card, { marginBottom: 12 }]}>
+          <TouchableOpacity style={s.drToggleRow} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setDrOpen(o => !o); }}>
+            <Text style={[common.sectionTitle, { marginBottom: 0 }]}>🚗 Driver rotation</Text>
+            <Text style={{ color: c.text3, fontSize: 12 }}>{drOpen ? '▲' : '▼'}</Text>
+          </TouchableOpacity>
+          {drOpen && (
+            <>
+              <Text style={{ fontSize: 13, color: c.text3, marginTop: 10, marginBottom: 10 }}>
+                Enter names — route splits into {drSegHours}h legs.
+              </Text>
+              {drNames.map((n, i) => (
+                <TextInput
+                  key={i}
+                  style={[s.drInput, { color: c.text1, backgroundColor: c.bgMuted, borderColor: c.border }]}
+                  placeholder={`Driver ${i + 1}`}
+                  placeholderTextColor={c.text3}
+                  value={n}
+                  onChangeText={v => setDrNames(p => p.map((x, idx) => idx === i ? v : x))}
+                  maxLength={30}
+                />
+              ))}
+              {drNames.length < 6 && (
+                <TouchableOpacity onPress={() => setDrNames(p => [...p, ''])}>
+                  <Text style={{ color: c.orange, fontWeight: '600', fontSize: 13, marginBottom: 10 }}>+ Add driver</Text>
+                </TouchableOpacity>
+              )}
+              <View style={s.drSegRow}>
+                <Text style={{ fontSize: 12, color: c.text3, marginRight: 6 }}>Swap every</Text>
+                {[1, 1.5, 2, 2.5, 3].map(h => (
+                  <TouchableOpacity
+                    key={h}
+                    style={[s.drSegChip, { borderColor: drSegHours === h ? c.orange : c.border, backgroundColor: drSegHours === h ? c.orange : 'transparent' }]}
+                    onPress={() => setDrSegHours(h)}
+                  >
+                    <Text style={{ fontSize: 12, color: drSegHours === h ? '#fff' : c.text3 }}>{h}h</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              {(() => {
+                const legColors = ['#F97316', '#0EA5E9', '#16A34A', '#8B5CF6', '#EC4899'];
+                const validNames = drNames.map(n => n.trim()).filter(Boolean);
+                if (validNames.length < 2) return (
+                  <Text style={{ fontSize: 13, color: c.text3, fontStyle: 'italic' }}>Enter at least 2 names.</Text>
+                );
+                return buildDriverSchedule(validNames, rs.totalDistance, rs.estimatedDriveTime, drSegHours * 60).map((leg, i) => (
+                  <View key={i} style={[s.drLeg, { borderLeftColor: legColors[i % validNames.length] }]}>
+                    <Text style={[s.drLegDriver, { color: c.text1 }]}>{leg.driver}</Text>
+                    <Text style={{ fontSize: 12, color: c.text2 }}>Mi {leg.fromMile}–{leg.toMile}</Text>
+                    <Text style={{ fontSize: 12, color: c.text3, marginLeft: 'auto' }}>{fmtMins(leg.durationMin)}</Text>
+                  </View>
+                ));
+              })()}
+            </>
+          )}
+        </View>
+      )}
+
+      {/* Packing List */}
+      <View style={[common.card, { marginBottom: 12 }]}>
+        <View style={s.plHeader}>
+          <Text style={[common.sectionTitle, { marginBottom: 0 }]}>🎒 Packing List</Text>
+          {plGenerated && (
+            <Text style={{ fontSize: 13, color: c.orange, fontWeight: '700' }}>
+              {Object.values(plChecked).filter(Boolean).length}/{plCats.reduce((sum, cat) => sum + cat.items.length, 0)} packed
+            </Text>
+          )}
+        </View>
+        {!plGenerated ? (
+          <View style={{ marginTop: 10 }}>
+            <Text style={{ fontSize: 13, color: c.text3, marginBottom: 12 }}>
+              AI builds a packing list tailored to your destination and trip length.
+            </Text>
+            <TouchableOpacity
+              style={[s.notesSaveBtn, { backgroundColor: c.orange }]}
+              onPress={handleGeneratePacking}
+              disabled={plLoading}
+            >
+              {plLoading
+                ? <ActivityIndicator color="#fff" size="small" />
+                : <Text style={s.notesSaveBtnText}>✨ Generate packing list</Text>
+              }
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <>
+            {plCats.map(cat => (
+              <View key={cat.name} style={{ marginTop: 12 }}>
+                <Text style={s.plCatTitle}>{cat.name}</Text>
+                {cat.items.map(item => {
+                  const key = `${cat.name}::${item}`;
+                  const checked = !!plChecked[key];
+                  return (
+                    <TouchableOpacity
+                      key={key}
+                      style={s.plItem}
+                      onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setPlChecked(p => ({ ...p, [key]: !p[key] })); }}
+                    >
+                      <View style={[s.plCheckbox, { borderColor: checked ? c.orange : c.border, backgroundColor: checked ? c.orange : 'transparent' }]}>
+                        {checked && <Text style={{ color: '#fff', fontSize: 10, fontWeight: '900' }}>✓</Text>}
+                      </View>
+                      <Text style={{ fontSize: 14, color: checked ? c.text3 : c.text1, textDecorationLine: checked ? 'line-through' : 'none' }}>{item}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            ))}
+            <TouchableOpacity
+              style={[s.notesSaveBtn, { backgroundColor: 'transparent', borderWidth: 1, borderColor: c.border, marginTop: 12 }]}
+              onPress={handleGeneratePacking}
+              disabled={plLoading}
+            >
+              {plLoading
+                ? <ActivityIndicator color={c.text3} size="small" />
+                : <Text style={[s.notesSaveBtnText, { color: c.text3 }]}>↺ Regenerate</Text>
+              }
+            </TouchableOpacity>
+          </>
+        )}
+      </View>
+
       {/* Notes */}
       <View style={[common.card, { marginBottom: 12 }]}>
         <Text style={[common.sectionTitle, { marginBottom: 8 }]}>My Notes</Text>
@@ -464,6 +632,13 @@ export default function TripDetailScreen({ route, navigation }: Props) {
 
       <TouchableOpacity style={s.shareBtn} onPress={handleShare}>
         <Text style={s.shareBtnText}>↗ Share Trip</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={s.publicLinkBtn} onPress={handlePublicLink} disabled={publicLinkLoading}>
+        {publicLinkLoading
+          ? <ActivityIndicator color="#fff" size="small" />
+          : <Text style={s.publicLinkBtnText}>🔗 Public share link</Text>
+        }
       </TouchableOpacity>
 
       {/* Notifications */}
@@ -558,6 +733,18 @@ const s = StyleSheet.create({
   notesInput: { borderWidth: 1, borderRadius: 10, padding: 12, fontSize: 14, minHeight: 96, marginBottom: 10 },
   notesSaveBtn: { borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
   notesSaveBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
+  drToggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  drInput: { borderWidth: 1, borderRadius: 10, padding: 10, fontSize: 14, marginBottom: 8 },
+  drSegRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
+  drSegChip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, borderWidth: 1 },
+  drLeg: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 8, borderRadius: 8, borderLeftWidth: 3, backgroundColor: 'rgba(0,0,0,0.03)', marginBottom: 6 },
+  drLegDriver: { fontSize: 13, fontWeight: '700', minWidth: 70 },
+  plHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 0 },
+  plCatTitle: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6, color: '#9CA3AF', marginBottom: 6 },
+  plItem: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
+  plCheckbox: { width: 20, height: 20, borderRadius: 4, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  publicLinkBtn: { marginTop: 10, borderRadius: 12, paddingVertical: 12, alignItems: 'center', backgroundColor: '#1E3A5F' },
+  publicLinkBtnText: { fontSize: 14, color: '#fff', fontWeight: '600' },
   fbStars: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 14 },
   fbStar: { fontSize: 30 },
   fbStarLabel: { fontSize: 14, fontWeight: '700', marginLeft: 6 },

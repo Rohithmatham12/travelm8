@@ -5,7 +5,7 @@ import { TripService } from '../services/tripService';
 import { FeedbackService } from '../services/feedbackService';
 import { CreateTripRequest, UpdateTripRequest, BudgetEntry, BudgetCategory } from '../types/trip';
 import { SaveFeedbackRequest } from '../types/feedback';
-import { getItem, putItem, queryItems, getTripByShareToken } from '../utils/storage';
+import { getItem, putItem, queryItems, updateItem, getTripByShareToken } from '../utils/storage';
 import type { Trip } from '../types/trip';
 import { askAI } from '../services/aiService';
 import {
@@ -446,6 +446,34 @@ export async function publicTripHandler(req: Request, res: Response): Promise<vo
 }
 
 // Exported directly to app.ts (bypasses tripsRouter JWT middleware)
+export async function autoCompleteTripHandler(req: Request, res: Response): Promise<void> {
+  const secret = process.env.INTERNAL_SECRET;
+  const provided = (req.headers['authorization'] || '').replace('Bearer ', '');
+  if (!secret || provided !== secret) {
+    res.status(401).json({ success: false, error: 'Unauthorized' }); return;
+  }
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const allTrips = await queryItems('trips') as (Trip & { userId: string })[];
+    const toComplete = allTrips.filter(t =>
+      t.endDate && t.endDate < today &&
+      t.status !== 'completed' && t.status !== 'cancelled'
+    );
+    const results: { tripId: string; title: string }[] = [];
+    for (const trip of toComplete) {
+      await updateItem('trips', { userId: trip.userId, tripId: trip.tripId }, {
+        status: 'completed',
+        updatedAt: new Date().toISOString(),
+      });
+      results.push({ tripId: trip.tripId, title: trip.title });
+    }
+    successResponse(res, { completed: results.length, trips: results }, 'Auto-complete done');
+  } catch (error) {
+    console.error('auto-complete error:', error);
+    internalErrorResponse(res, 'Failed to auto-complete trips');
+  }
+}
+
 export async function sendRemindersHandler(req: Request, res: Response): Promise<void> {
   const secret = process.env.INTERNAL_SECRET;
   const provided = (req.headers['authorization'] || '').replace('Bearer ', '');

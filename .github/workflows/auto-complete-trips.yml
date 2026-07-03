@@ -1,0 +1,22 @@
+name: Auto-complete Trips
+
+on:
+  schedule:
+    - cron: '0 6 * * *'   # daily at 06:00 UTC — after midnight in most US timezones
+  workflow_dispatch:
+
+jobs:
+  auto-complete:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mark past trips as completed
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X POST "${{ secrets.VERCEL_APP_URL }}/trips/auto-complete" \
+            -H "Authorization: Bearer ${{ secrets.INTERNAL_SECRET }}" \
+            -H "Content-Type: application/json")
+          echo "Response status: $STATUS"
+          if [ "$STATUS" != "200" ]; then
+            echo "auto-complete endpoint returned $STATUS — failing job"
+            exit 1
+          fi

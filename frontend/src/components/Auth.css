@@ -255,6 +255,35 @@
   text-decoration: underline; padding: 0;
 }
 
+/* Onboarding empty state */
+.db-onboard { padding: var(--sp-8) var(--sp-2); }
+.db-onboard-emoji { font-size: 2rem; margin-bottom: var(--sp-3); }
+.db-onboard-title {
+  font-family: 'Sora', sans-serif;
+  font-size: var(--text-lg); font-weight: 800; color: var(--navy);
+  margin-bottom: var(--sp-2);
+}
+.db-onboard-sub { font-size: var(--text-sm); color: var(--text-3); margin-bottom: var(--sp-5); max-width: 400px; }
+.db-onboard-steps { display: flex; flex-direction: column; gap: var(--sp-3); margin-bottom: var(--sp-6); text-align: left; max-width: 420px; }
+.db-onboard-step { display: flex; align-items: flex-start; gap: var(--sp-3); }
+.db-onboard-step-n {
+  width: 22px; height: 22px; min-width: 22px;
+  background: var(--orange); color: #fff;
+  border-radius: 50%; font-size: 11px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+  margin-top: 1px;
+}
+.db-onboard-step-txt { font-size: var(--text-sm); color: var(--text-2); line-height: 1.4; }
+.db-onboard-cta {
+  padding: 11px 26px;
+  background: var(--orange); color: #fff;
+  border: none; border-radius: var(--r);
+  font-weight: 700; font-size: var(--text-sm);
+  cursor: pointer;
+  transition: opacity var(--dur) var(--ease);
+}
+.db-onboard-cta:hover { opacity: 0.88; }
+
 /* Status chips (here for dashboard use) */
 .status-chip {
   display: inline-flex; align-items: center; padding: 2px 8px;

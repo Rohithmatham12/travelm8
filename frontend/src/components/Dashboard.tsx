@@ -127,14 +127,27 @@ const Dashboard: React.FC = () => {
         {loading ? (
           <TripSkeleton />
         ) : trips.length === 0 ? (
-          <div className="db-trips-empty">
-            <p className="db-empty-icon">🗺️</p>
-            <p>No trips yet.</p>
-            <p>
-              <button onClick={() => navigate('/route-planner')}>
-                Plan your first road trip →
-              </button>
-            </p>
+          <div className="db-onboard">
+            <p className="db-onboard-emoji">🗺️</p>
+            <h3 className="db-onboard-title">Your road trips start here</h3>
+            <p className="db-onboard-sub">TravelM8 is a road trip copilot — plan the route, estimate costs, split expenses, share with crew.</p>
+            <div className="db-onboard-steps">
+              <div className="db-onboard-step">
+                <span className="db-onboard-step-n">1</span>
+                <span className="db-onboard-step-txt"><strong>Plan your route</strong> — enter origin, destination, departure date &amp; travelers</span>
+              </div>
+              <div className="db-onboard-step">
+                <span className="db-onboard-step-n">2</span>
+                <span className="db-onboard-step-txt"><strong>Get AI analysis</strong> — fatigue check, fuel cost estimate, lodging budget</span>
+              </div>
+              <div className="db-onboard-step">
+                <span className="db-onboard-step-n">3</span>
+                <span className="db-onboard-step-txt"><strong>Invite your crew</strong> — vote on stops, split expenses, settle up automatically</span>
+              </div>
+            </div>
+            <button className="db-onboard-cta" onClick={() => navigate('/route-planner')}>
+              Plan your first trip →
+            </button>
           </div>
         ) : (
           <div className="db-trip-list">
