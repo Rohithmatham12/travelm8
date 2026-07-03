@@ -1,5 +1,14 @@
 import { Router, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
+import rateLimit from 'express-rate-limit';
+
+const packingAiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'AI rate limit reached. Try again in 15 minutes.' },
+});
 import { authenticateToken, AuthRequest } from '../utils/auth';
 import { TripService } from '../services/tripService';
 import { FeedbackService } from '../services/feedbackService';
@@ -366,7 +375,7 @@ tripsRouter.post('/:tripId/invite', async (req: AuthRequest, res) => {
 });
 
 // AI packing list
-tripsRouter.post('/:tripId/packing-list', async (req: AuthRequest, res) => {
+tripsRouter.post('/:tripId/packing-list', packingAiLimiter, async (req: AuthRequest, res) => {
   try {
     const trip = await getItem('trips', { userId: req.userId!, tripId: req.params.tripId }) as Trip | null;
     if (!trip) return notFoundResponse(res, 'Trip not found');
