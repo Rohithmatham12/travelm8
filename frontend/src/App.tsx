@@ -22,6 +22,7 @@ import ResetPassword from './components/ResetPassword';
 import VerifyEmail from './components/VerifyEmail';
 import BudgetTracker from './components/BudgetTracker';
 import LandingPage from './components/LandingPage';
+import NotFound from './components/NotFound';
 import { isAuthenticated } from './utils/auth';
 
 function App() {
@@ -34,6 +35,7 @@ function App() {
           <Route path="/auth" element={<Auth />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/404" element={<NotFound />} />
           <Route
             path="/*"
             element={
@@ -55,6 +57,7 @@ function App() {
                       <Route path="/trips/:tripId/share" element={<TripSharing />} />
                       <Route path="/trips/:tripId/budget" element={<BudgetTracker />} />
                       <Route path="/analytics" element={<Analytics />} />
+                      <Route path="*" element={<NotFound />} />
                     </Routes>
                   </main>
                 </>

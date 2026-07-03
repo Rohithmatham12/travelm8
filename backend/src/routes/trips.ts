@@ -362,29 +362,26 @@ tripsRouter.post('/:tripId/invite', async (req: AuthRequest, res) => {
   }
 });
 
-// Send push reminders for trips starting tomorrow — called by GitHub Actions cron
-// Secured by INTERNAL_SECRET env var; returns 401 if secret missing or wrong
-tripsRouter.post('/send-reminders', async (req, res) => {
+// Exported directly to app.ts (bypasses tripsRouter JWT middleware)
+import { Request, Response } from 'express';
+export async function sendRemindersHandler(req: Request, res: Response): Promise<void> {
   const secret = process.env.INTERNAL_SECRET;
   const provided = (req.headers['authorization'] || '').replace('Bearer ', '');
   if (!secret || provided !== secret) {
-    return res.status(401).json({ success: false, error: 'Unauthorized' });
+    res.status(401).json({ success: false, error: 'Unauthorized' }); return;
   }
-
   try {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStr = tomorrow.toISOString().slice(0, 10); // YYYY-MM-DD
+    const tomorrowStr = tomorrow.toISOString().slice(0, 10);
 
     const allTrips = await queryItems('trips') as (Trip & { userId: string })[];
     const due = allTrips.filter(t => t.startDate && t.startDate.startsWith(tomorrowStr));
-
     const results: { tripId: string; status: string }[] = [];
 
     for (const trip of due) {
-      const user = await getItem('users', { userId: trip.userId }) as { pushToken?: string; name?: string } | null;
+      const user = await getItem('users', { userId: trip.userId }) as { pushToken?: string } | null;
       if (!user?.pushToken) { results.push({ tripId: trip.tripId, status: 'no_token' }); continue; }
-
       try {
         const r = await fetch('https://exp.host/--/api/v2/push/send', {
           method: 'POST',
@@ -402,10 +399,9 @@ tripsRouter.post('/send-reminders', async (req, res) => {
         results.push({ tripId: trip.tripId, status: 'send_failed' });
       }
     }
-
-    return successResponse(res, { checked: due.length, results }, 'Reminders processed');
+    successResponse(res, { checked: due.length, results }, 'Reminders processed');
   } catch (error) {
     console.error('send-reminders error:', error);
-    return internalErrorResponse(res, 'Failed to process reminders');
+    internalErrorResponse(res, 'Failed to process reminders');
   }
-});
+}
