@@ -26,6 +26,7 @@ const Header: React.FC = () => {
           <NavLink to="/route-planner"    className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>Route Planner</NavLink>
           <NavLink to="/ai-recommendations" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>Destinations</NavLink>
           <NavLink to="/trips"            className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>My Trips</NavLink>
+          <NavLink to="/analytics"        className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>Analytics</NavLink>
         </nav>
 
         <div className="user-menu">
