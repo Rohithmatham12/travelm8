@@ -1,211 +1,119 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { Trip } from '../types/trip';
-import { get, put } from '../utils/api';
-
-interface ShareSettings {
-  isPublic: boolean;
-  allowComments: boolean;
-  shareCode?: string;
-  shareUrl?: string;
-}
-
-const PUBLIC_SHARING_READY = false;
+import { get, post } from '../utils/api';
+import { toast } from '../utils/toast';
+import './TripSharing.css';
 
 const TripSharing: React.FC = () => {
   const { tripId } = useParams<{ tripId: string }>();
   const [trip, setTrip] = useState<Trip | null>(null);
-  const [shareSettings, setShareSettings] = useState<ShareSettings>({
-    isPublic: false,
-    allowComments: false,
-  });
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+
+  const [email, setEmail]     = useState('');
+  const [note, setNote]       = useState('');
+  const [sending, setSending] = useState(false);
+  const [sent, setSent]       = useState<string[]>([]);
 
   const loadTrip = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await get<Trip>(`/trips/${tripId}`);
-      
-      if (response.success && response.data) {
-        const tripData = response.data;
-        setTrip(tripData);
-        
-        // Load existing share settings (this would come from the trip data in a real implementation)
-        setShareSettings({
-          isPublic: (tripData as any).isPublic || false,
-          allowComments: (tripData as any).allowComments || false,
-          shareCode: (tripData as any).shareCode,
-          shareUrl: (tripData as any).shareUrl,
-        });
-      } else {
-        setError(response.error || 'Failed to load trip');
-      }
-    } catch (err) {
-      console.error('Error loading trip:', err);
-      setError('Failed to load trip');
-    } finally {
-      setLoading(false);
-    }
+    const res = await get<Trip>(`/trips/${tripId}`);
+    if (res.success && res.data) setTrip(res.data);
+    setLoading(false);
   }, [tripId]);
 
-  useEffect(() => {
-    if (tripId) {
-      loadTrip();
-    }
-  }, [tripId, loadTrip]);
+  useEffect(() => { loadTrip(); }, [loadTrip]);
 
-  const handleShareSettingsChange = async (newSettings: Partial<ShareSettings>) => {
+  const handleSend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim()) return;
+    setSending(true);
     try {
-      setSaving(true);
-      setError(null);
-
-      if (newSettings.isPublic && !PUBLIC_SHARING_READY) {
-        setError('Public share links are not enabled yet. Keep this trip private and export or message the plan directly for now.');
-        return;
-      }
-
-      const updatedSettings = {
-        ...shareSettings,
-        ...newSettings,
-      };
-
-      // If making private, remove share code and URL
-      if (newSettings.isPublic === false) {
-        updatedSettings.shareCode = undefined;
-        updatedSettings.shareUrl = undefined;
-      }
-
-      const result = await put<Trip>(`/trips/${tripId}`, {
-        isPublic: updatedSettings.isPublic,
-        allowComments: updatedSettings.allowComments,
-        shareCode: updatedSettings.shareCode,
-        shareUrl: updatedSettings.shareUrl,
-      });
-      
-      if (result.success && result.data) {
-        setTrip(result.data);
-        setShareSettings(updatedSettings);
+      const res = await post(`/trips/${tripId}/invite`, { recipientEmail: email.trim(), note: note.trim() || undefined });
+      if (res.success) {
+        setSent(prev => [...prev, email.trim()]);
+        setEmail('');
+        setNote('');
+        toast.success(`Invite sent to ${email.trim()}`);
       } else {
-        setError(result.error || 'Failed to update share settings');
+        toast.error(res.error || 'Failed to send invite');
       }
-    } catch (err) {
-      console.error('Error updating share settings:', err);
-      setError('Failed to update share settings. Please try again.');
+    } catch {
+      toast.error('Failed to send invite');
     } finally {
-      setSaving(false);
+      setSending(false);
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  };
+  const fmt = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
-  if (loading) {
-    return (
-      <div className="trip-sharing">
-        <div className="loading">Loading sharing options...</div>
-      </div>
-    );
-  }
-
-  if (error || !trip) {
-    return (
-      <div className="trip-sharing">
-        <div className="error-message">
-          {error || 'Trip not found'}
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <div className="ts-page"><div className="ts-loading">Loading…</div></div>;
+  if (!trip)   return <div className="ts-page"><div className="ts-error">Trip not found</div></div>;
 
   return (
-    <div className="trip-sharing">
-      <div className="sharing-header">
-        <h2>Share Your Trip</h2>
-        <p>Prepare a private plan you can review before sending outside TravelM8.</p>
+    <div className="ts-page">
+      <div className="ts-header">
+        <Link to={`/trips/${tripId}`} className="ts-back">← Back</Link>
+        <h1 className="ts-title">Invite someone</h1>
+        <p className="ts-sub">Send a trip summary by email. They'll get the details and a link to TravelM8.</p>
       </div>
 
-      {error && (
-        <div className="error-message">
-          {error}
-        </div>
-      )}
+      <div className="ts-body">
 
-      <div className="sharing-content">
-        <div className="trip-preview">
-          <h3>Trip Preview</h3>
-          <div className="preview-card">
-            <h4>{trip.title}</h4>
-            <p className="destination">📍 {trip.destination}</p>
-            <p className="dates">
-              {formatDate(trip.startDate)} - {formatDate(trip.endDate)}
-            </p>
-            <p className="travelers">👥 {trip.travelers} traveler{trip.travelers > 1 ? 's' : ''}</p>
-            {trip.description && <p className="description">{trip.description}</p>}
+        {/* Trip card */}
+        <div className="ts-trip-card">
+          <h2 className="ts-trip-title">{trip.title}</h2>
+          <div className="ts-trip-meta">
+            <span>📍 {trip.destination}</span>
+            <span>📅 {fmt(trip.startDate)} – {fmt(trip.endDate)}</span>
+            <span>👥 {trip.travelers} traveler{trip.travelers !== 1 ? 's' : ''}</span>
           </div>
+          {trip.description && <p className="ts-trip-desc">{trip.description}</p>}
         </div>
 
-        <div className="sharing-settings">
-          <h3>Sharing Settings</h3>
-          
-          <div className="setting-group">
-            <label className="setting-label">
-              <input
-                type="checkbox"
-                checked={shareSettings.isPublic}
-                onChange={(e) => handleShareSettingsChange({ isPublic: e.target.checked })}
-                disabled={saving || !PUBLIC_SHARING_READY}
-              />
-              <span className="setting-text">
-                <strong>Public share link</strong>
-                <small>Coming after secure public trip pages are added. This trip stays private for now.</small>
-              </span>
+        {/* Invite form */}
+        <form className="ts-form" onSubmit={handleSend}>
+          <div className="field">
+            <label className="field-label required">Recipient email</label>
+            <input
+              className="field-input"
+              type="email"
+              placeholder="friend@example.com"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              required
+              disabled={sending}
+            />
+          </div>
+          <div className="field">
+            <label className="field-label">
+              Personal note <span className="ts-optional">(optional)</span>
             </label>
+            <textarea
+              className="field-textarea"
+              rows={3}
+              placeholder="Hey, we're planning this trip — hope you can make it!"
+              value={note}
+              onChange={e => setNote(e.target.value)}
+              disabled={sending}
+            />
           </div>
+          <button className="btn btn-primary ts-send-btn" type="submit" disabled={sending || !email.trim()}>
+            {sending ? 'Sending…' : 'Send invite'}
+          </button>
+        </form>
 
-          <div className="share-link-section">
-            <h4>Private Sharing Status</h4>
-            <p className="share-link-note">
-              TravelM8 will not generate a public URL until the app has a matching secure public viewer.
-              For now, use the itinerary and route packet screens as the trusted copy of the plan.
-            </p>
+        {/* Sent log */}
+        {sent.length > 0 && (
+          <div className="ts-sent-list">
+            <p className="ts-sent-label">Sent this session</p>
+            {sent.map(e => (
+              <div className="ts-sent-item" key={e}>
+                <span className="ts-sent-check">✓</span> {e}
+              </div>
+            ))}
           </div>
+        )}
 
-          {shareSettings.isPublic && (
-            <div className="setting-group">
-              <label className="setting-label">
-                <input
-                  type="checkbox"
-                  checked={shareSettings.allowComments}
-                  onChange={(e) => handleShareSettingsChange({ allowComments: e.target.checked })}
-                  disabled={saving}
-                />
-                <span className="setting-text">
-                  <strong>Allow comments</strong>
-                  <small>Let others leave comments and suggestions on your trip</small>
-                </span>
-              </label>
-            </div>
-          )}
-
-        </div>
-
-        <div className="sharing-tips">
-          <h3>Trip Handoff Checklist</h3>
-          <ul>
-            <li>Send the final itinerary only after route stops, lodging, and meal backups are verified</li>
-            <li>Share the offline packet details with anyone who needs your route context</li>
-            <li>Keep your trip private if you prefer to plan in private</li>
-            <li>Confirm motel late check-in and one backup food stop before departure</li>
-            <li>Add public sharing later only with a working viewer and privacy controls</li>
-          </ul>
-        </div>
       </div>
     </div>
   );

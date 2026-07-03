@@ -1,0 +1,40 @@
+.ts-page { max-width: 600px; margin: 0 auto; padding: 32px 20px; }
+
+.ts-loading, .ts-error {
+  text-align: center; padding: 60px 20px;
+  color: var(--text-3); font-size: 0.95rem;
+}
+
+.ts-header { margin-bottom: 28px; }
+.ts-back {
+  display: inline-block; margin-bottom: 12px;
+  font-size: 0.85rem; font-weight: 600; color: var(--text-3);
+}
+.ts-back:hover { color: var(--orange); }
+.ts-title { font-family: 'Sora', sans-serif; font-size: 1.5rem; font-weight: 800; color: var(--navy); margin: 0 0 6px; }
+.ts-sub   { font-size: 0.9rem; color: var(--text-2); margin: 0; }
+
+.ts-body { display: flex; flex-direction: column; gap: 20px; }
+
+/* Trip card */
+.ts-trip-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--r-lg); padding: 20px 22px;
+}
+.ts-trip-title { font-size: 1.05rem; font-weight: 700; color: var(--navy); margin: 0 0 10px; }
+.ts-trip-meta  { display: flex; flex-wrap: wrap; gap: 10px; font-size: 0.85rem; color: var(--text-3); margin-bottom: 4px; }
+.ts-trip-desc  { font-size: 0.88rem; color: var(--text-2); margin: 10px 0 0; line-height: 1.5; }
+
+/* Form */
+.ts-form { display: flex; flex-direction: column; gap: 14px; }
+.ts-optional { font-weight: 400; color: var(--text-3); font-size: 0.8rem; }
+.ts-send-btn  { align-self: flex-start; min-width: 140px; }
+
+/* Sent list */
+.ts-sent-list {
+  background: var(--bg-muted); border: 1px solid var(--border);
+  border-radius: var(--r-lg); padding: 16px 20px;
+}
+.ts-sent-label { font-size: 0.75rem; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.06em; margin: 0 0 10px; }
+.ts-sent-item  { display: flex; align-items: center; gap: 8px; font-size: 0.88rem; color: var(--text-2); padding: 4px 0; }
+.ts-sent-check { color: #22c55e; font-weight: 700; }

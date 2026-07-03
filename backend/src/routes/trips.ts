@@ -14,6 +14,7 @@ import {
   notFoundResponse,
   internalErrorResponse
 } from '../utils/response';
+import { sendTripInviteEmail } from '../utils/email';
 
 export const tripsRouter = Router();
 const tripService = new TripService();
@@ -338,5 +339,25 @@ tripsRouter.delete('/:tripId/itinerary/:itemId', async (req: AuthRequest, res) =
   } catch (error) {
     console.error('Error removing itinerary item:', error);
     internalErrorResponse(res, 'Failed to remove itinerary item');
+  }
+});
+
+// Send trip invite email
+tripsRouter.post('/:tripId/invite', async (req: AuthRequest, res) => {
+  try {
+    const trip = await getItem('trips', { userId: req.userId!, tripId: req.params.tripId }) as Trip | null;
+    if (!trip) return notFoundResponse(res, 'Trip not found');
+
+    const { recipientEmail, note } = req.body as { recipientEmail?: string; note?: string };
+    if (!recipientEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail)) {
+      return badRequestResponse(res, 'Valid recipient email required');
+    }
+
+    const senderName = req.user?.name || req.user?.email || 'A TravelM8 user';
+    await sendTripInviteEmail(recipientEmail, senderName, trip, note?.trim() || undefined);
+    successResponse(res, {}, 'Invite sent');
+  } catch (error) {
+    console.error('Error sending trip invite:', error);
+    internalErrorResponse(res, 'Failed to send invite');
   }
 });
