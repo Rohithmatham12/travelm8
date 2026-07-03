@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Trip } from '../types/trip';
 import { get, post, del } from '../utils/api';
 import { toast } from '../utils/toast';
+import { generatePacketHtml, downloadPacket } from '../utils/routePacket';
 import './TripDetail.css';
 
 const TripDetailSkeleton = () => (
@@ -41,6 +42,7 @@ const TripDetail: React.FC = () => {
   const [fbNote, setFbNote] = useState('');
   const [fbSaving, setFbSaving] = useState(false);
   const [fbSaved, setFbSaved] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   const loadTrip = useCallback(async () => {
     try {
@@ -79,6 +81,31 @@ const TripDetail: React.FC = () => {
       if (r.success && r.data) { setFeedback(r.data); setFbSaved(true); toast.success('Feedback saved!'); }
     } catch {}
     finally { setFbSaving(false); }
+  };
+
+  const handleDownloadPacket = async () => {
+    if (!trip) return;
+    setDownloading(true);
+    try {
+      const budgetRes = await get<any>(`/trips/${tripId}/budget`);
+      const budget = budgetRes.success ? budgetRes.data : undefined;
+      const html = generatePacketHtml({
+        title: trip.title,
+        destination: trip.destination,
+        startDate: trip.startDate,
+        endDate: trip.endDate,
+        travelers: trip.travelers,
+        routePlan: trip.routeData?.routePlan,
+        finalItinerary: trip.routeData?.finalItinerary,
+        budget,
+      });
+      const slug = trip.title.replace(/\s+/g, '-').toLowerCase().replace(/[^a-z0-9-]/g, '');
+      downloadPacket(html, `travelm8-${slug}.html`);
+    } catch {
+      toast.error('Failed to generate packet');
+    } finally {
+      setDownloading(false);
+    }
   };
 
   const handleDelete = async () => {
@@ -134,6 +161,9 @@ const TripDetail: React.FC = () => {
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <Link to={`/trips/${tripId}/budget`} className="td-replan-btn">$ Budget</Link>
+            <button className="td-replan-btn" onClick={handleDownloadPacket} disabled={downloading}>
+              {downloading ? '…' : '⬇ Packet'}
+            </button>
             {rq && (
               <button
                 className="td-replan-btn"
