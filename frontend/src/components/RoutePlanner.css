@@ -110,13 +110,39 @@
   box-shadow: var(--sh-sm);
 }
 .route-summary h2 { font-size: var(--text-sm); font-weight: 700; color: var(--navy); margin-bottom: var(--sp-4); }
-.summary-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-3); margin-bottom: var(--sp-3); }
+.summary-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-3); margin-bottom: var(--sp-3); }
 .summary-card {
   background: var(--bg-muted); border: 1px solid var(--border);
   border-radius: var(--r); padding: var(--sp-4);
 }
 .summary-card .label { font-size: var(--text-xs); color: var(--text-4); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: var(--sp-1); }
 .summary-card .value { font-size: var(--text-2xl); font-weight: 800; color: var(--orange); font-family: 'Sora', sans-serif; }
+
+/* Risk card */
+.summary-card-risk { border-width: 1.5px !important; }
+.risk-card-low    { background: var(--green-dim) !important; border-color: rgba(16,185,129,0.25) !important; }
+.risk-card-medium { background: var(--amber-dim) !important; border-color: rgba(245,158,11,0.25) !important; }
+.risk-card-high   { background: var(--red-dim)   !important; border-color: rgba(220,38,38,0.25)  !important; }
+.risk-card-low    .label { color: var(--green) !important; }
+.risk-card-medium .label { color: var(--amber) !important; }
+.risk-card-high   .label { color: var(--red)   !important; }
+.risk-card-val {
+  display: flex; align-items: center; gap: 6px;
+  font-size: var(--text-xl) !important;
+}
+.risk-card-low    .risk-card-val { color: var(--green) !important; }
+.risk-card-medium .risk-card-val { color: var(--amber) !important; }
+.risk-card-high   .risk-card-val { color: var(--red)   !important; }
+.risk-meter {
+  display: flex; gap: 3px; margin-top: var(--sp-2);
+}
+.risk-seg {
+  flex: 1; height: 4px; border-radius: 2px; background: rgba(0,0,0,0.1);
+  transition: background 0.3s ease;
+}
+.risk-card-low    .risk-seg.risk-seg-on { background: var(--green); }
+.risk-card-medium .risk-seg.risk-seg-on { background: var(--amber); }
+.risk-card-high   .risk-seg.risk-seg-on { background: var(--red); }
 .route-cities { font-size: var(--text-sm); color: var(--text-3); line-height: 1.6; }
 .route-cities strong { color: var(--navy); }
 

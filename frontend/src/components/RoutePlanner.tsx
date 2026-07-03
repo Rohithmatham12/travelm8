@@ -463,6 +463,20 @@ ${stopOptionSets.map(set => `
                 <span className="label">Planned Stops</span>
                 <span className="value">{routePlan.routeSummary.suggestedStops}</span>
               </div>
+              {routePlan.aiInsights && (
+                <div className={`summary-card summary-card-risk risk-card-${routePlan.aiInsights.riskLevel}`}>
+                  <span className="label">Trip Risk</span>
+                  <span className="value risk-card-val">
+                    <span className="risk-dot" />
+                    {routePlan.aiInsights.riskLevel.toUpperCase()}
+                  </span>
+                  <div className="risk-meter">
+                    <div className={`risk-seg${routePlan.aiInsights.riskLevel === 'low' || routePlan.aiInsights.riskLevel === 'medium' || routePlan.aiInsights.riskLevel === 'high' ? ' risk-seg-on' : ''}`} />
+                    <div className={`risk-seg${routePlan.aiInsights.riskLevel === 'medium' || routePlan.aiInsights.riskLevel === 'high' ? ' risk-seg-on' : ''}`} />
+                    <div className={`risk-seg${routePlan.aiInsights.riskLevel === 'high' ? ' risk-seg-on' : ''}`} />
+                  </div>
+                </div>
+              )}
             </div>
             <div className="route-cities"><strong>Route:</strong> {routePlan.routeSummary.majorCities.join(' → ')}</div>
           </section>

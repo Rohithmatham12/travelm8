@@ -171,6 +171,18 @@ const TripDetail: React.FC = () => {
               <div className="td-route-stat td-route-cities"><span className="td-route-lbl">via</span><span className="td-route-val">{rs.majorCities.slice(0, 3).join(', ')}</span></div>
             </>
           )}
+          {ai?.riskLevel && (
+            <>
+              <div className="td-route-divider" />
+              <div className="td-route-stat">
+                <span className="td-route-lbl">Risk</span>
+                <span className={`td-risk-pill risk-pill-${ai.riskLevel}`}>
+                  <span className="risk-dot" />
+                  {ai.riskLevel.toUpperCase()}
+                </span>
+              </div>
+            </>
+          )}
         </div>
       )}
 
