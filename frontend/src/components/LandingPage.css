@@ -142,32 +142,74 @@
 }
 .lp-footer-copy { font-size: 0.8rem; color: var(--text-3); margin: 0; }
 
-/* ── USP comparison grid ── */
-.lp-usp {
-  padding: 48px 24px;
-  background: var(--bg-muted);
-  border-top: 1px solid var(--border);
+/* ── 4 apps → 1 comparison ── */
+.lp-compare { padding: 72px 24px; background: var(--bg-muted); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.lp-compare-grid { display: grid; grid-template-columns: 1fr auto 1fr; gap: 24px; align-items: start; margin-top: 40px; }
+@media (max-width: 768px) { .lp-compare-grid { grid-template-columns: 1fr; } .lp-compare-arrow { display: none; } }
+.lp-compare-col { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+.lp-compare-after { border-color: var(--orange); }
+.lp-compare-col-header { padding: 14px 18px; border-bottom: 1px solid var(--border); }
+.lp-compare-badge { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; padding: 3px 10px; border-radius: 999px; }
+.lp-compare-badge-before { background: var(--bg-muted); color: var(--text-3); }
+.lp-compare-badge-after { background: var(--orange); color: #fff; }
+.lp-compare-row { display: flex; align-items: flex-start; gap: 10px; padding: 10px 18px; font-size: 0.875rem; color: var(--text-2); border-bottom: 1px solid var(--border); }
+.lp-compare-row:last-of-type { border-bottom: none; }
+.lp-compare-icon { font-size: 1.1rem; flex-shrink: 0; }
+.lp-compare-row strong { color: var(--text-1); }
+.lp-compare-does { color: var(--text-3); }
+.lp-compare-row-after { font-size: 0.875rem; color: var(--text-2); }
+.lp-compare-pain { padding: 12px 18px; font-size: 0.8rem; color: var(--red); background: rgba(220,38,38,0.06); font-style: italic; }
+.lp-compare-win { padding: 12px 18px; font-size: 0.875rem; color: var(--orange); font-weight: 700; background: rgba(249,115,22,0.06); }
+.lp-compare-arrow { font-size: 2rem; color: var(--text-4); display: flex; align-items: center; padding-top: 60px; }
+
+/* ── Safety Score callout ── */
+.lp-score-callout {
+  padding: 80px 24px;
+  background: linear-gradient(135deg, rgba(249,115,22,0.06) 0%, var(--bg) 60%);
   border-bottom: 1px solid var(--border);
 }
-.lp-usp-grid {
+.lp-score-inner {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 12px;
+  grid-template-columns: 1fr auto;
+  gap: 48px;
+  align-items: center;
 }
-.lp-usp-card {
-  display: flex;
-  gap: 12px;
-  padding: 16px;
+@media (max-width: 768px) { .lp-score-inner { grid-template-columns: 1fr; } }
+.lp-score-text { max-width: 500px; }
+.lp-score-demo { flex-shrink: 0; }
+.lp-score-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  font-size: 0.875rem;
-  color: var(--text-2);
-  line-height: 1.5;
+  border-radius: 20px;
+  padding: 28px 32px;
+  text-align: center;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+  min-width: 220px;
 }
-.lp-usp-card strong { color: var(--text-1); }
-.lp-usp-card-us {
-  border-color: var(--orange);
-  background: rgba(249,115,22,0.06);
+.lp-score-ring {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 2px;
+  margin-bottom: 4px;
 }
-.lp-usp-x { font-size: 1.1rem; flex-shrink: 0; margin-top: 1px; }
+.lp-score-num { font-size: 3.5rem; font-weight: 900; color: var(--score-color, #d97706); font-family: 'Sora', sans-serif; line-height: 1; }
+.lp-score-denom { font-size: 1.2rem; font-weight: 700; color: var(--text-3); }
+.lp-score-label { font-size: 0.875rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 16px; }
+.lp-score-risks { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.lp-score-risk { font-size: 0.8rem; color: #92400e; background: #fef3c7; padding: 5px 10px; border-radius: 6px; text-align: left; }
+.lp-score-tip { font-size: 0.8rem; color: var(--text-3); background: var(--bg-muted); padding: 8px 10px; border-radius: 8px; text-align: left; }
+
+/* ── Feature badge ── */
+.lp-feat-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--orange);
+  color: #fff;
+  margin-bottom: 6px;
+}

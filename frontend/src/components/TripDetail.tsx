@@ -7,6 +7,7 @@ import { generatePacketHtml, downloadPacket } from '../utils/routePacket';
 import { generateICS, downloadICS } from '../utils/calendarExport';
 import { DriverRotation } from './DriverRotation';
 import { PackingList } from './PackingList';
+import { computeSafetyScore } from '../utils/safetyScore';
 import './TripDetail.css';
 
 const TripDetailSkeleton = () => (
@@ -238,6 +239,27 @@ const TripDetail: React.FC = () => {
           )}
         </div>
       )}
+
+      {/* Safety Score */}
+      {rs && (() => {
+        const depTime = rq?.departureTime ?? null;
+        const ss = computeSafetyScore(rs.estimatedDriveTime, rs.suggestedStops ?? 0, depTime);
+        return (
+          <div className="td-safety-bar" style={{ borderColor: ss.color, background: ss.bg }}>
+            <div className="td-safety-score" style={{ color: ss.color }}>
+              <span className="td-safety-num">{ss.score}</span>
+              <span className="td-safety-denom">/100</span>
+            </div>
+            <div className="td-safety-right">
+              <div className="td-safety-label" style={{ color: ss.color }}>Safety Score — {ss.label}</div>
+              {ss.risks.length > 0
+                ? ss.risks.map(r => <div key={r} className="td-safety-risk">⚠ {r}</div>)
+                : <div className="td-safety-ok">✓ Route looks safe</div>
+              }
+            </div>
+          </div>
+        );
+      })()}
 
       {/* AI Copilot */}
       {ai && (

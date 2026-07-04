@@ -1,0 +1,33 @@
+name: Uptime Monitor
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'   # every 6 hours
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check API health
+        run: |
+          RESPONSE=$(curl -s -w "\n%{http_code}" "${{ secrets.VERCEL_APP_URL }}/health")
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -1)
+          echo "Status: $HTTP_CODE"
+          echo "Body: $BODY"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "API health check FAILED (HTTP $HTTP_CODE)"
+            exit 1
+          fi
+          echo "API is healthy"
+
+      - name: Check frontend
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://travelm8app.vercel.app/")
+          echo "Frontend status: $STATUS"
+          if [ "$STATUS" != "200" ]; then
+            echo "Frontend health check FAILED (HTTP $STATUS)"
+            exit 1
+          fi
+          echo "Frontend is healthy"

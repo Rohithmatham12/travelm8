@@ -239,3 +239,21 @@
 }
 
 .td-meta { font-size: var(--text-xs); color: var(--text-3); margin-top: var(--sp-6); }
+
+/* Safety Score bar */
+.td-safety-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  border: 2px solid;
+  border-radius: var(--r-lg);
+  margin-bottom: var(--sp-4);
+}
+.td-safety-score { display: flex; align-items: baseline; gap: 2px; flex-shrink: 0; }
+.td-safety-num { font-size: 2rem; font-weight: 900; font-family: 'Sora', sans-serif; line-height: 1; }
+.td-safety-denom { font-size: 0.85rem; font-weight: 700; color: var(--text-3); }
+.td-safety-right { flex: 1; }
+.td-safety-label { font-size: var(--text-sm); font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+.td-safety-risk { font-size: var(--text-xs); color: var(--text-2); margin-top: 2px; }
+.td-safety-ok { font-size: var(--text-xs); color: #16a34a; font-weight: 600; }

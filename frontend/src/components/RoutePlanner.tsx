@@ -5,6 +5,7 @@ import { generatePacketHtml, downloadPacket } from '../utils/routePacket';
 import { generateICS, downloadICS } from '../utils/calendarExport';
 import { WeatherBar } from './WeatherBar';
 import { getGasStationsAlongRoute, GasStation } from '../utils/gasStations';
+import { computeSafetyScore } from '../utils/safetyScore';
 import './RoutePlanner.css';
 
 interface RouteStop {
@@ -495,6 +496,27 @@ const RoutePlanner: React.FC = () => {
           {/* Route Summary */}
           <section className="route-summary">
             <span className="section-kicker">Drive summary</span>
+            {/* Safety Score */}
+            {(() => {
+              const rs = routePlan.routeSummary;
+              const depTime = (routePlan as any).routeRequest?.departureTime ?? departureTime;
+              const ss = computeSafetyScore(rs.estimatedDriveTime, rs.suggestedStops, depTime);
+              return (
+                <div className="rp-safety-bar" style={{ borderColor: ss.color, background: ss.bg }}>
+                  <div className="rp-safety-score" style={{ color: ss.color }}>
+                    <span className="rp-safety-num">{ss.score}</span>
+                    <span className="rp-safety-denom">/100</span>
+                  </div>
+                  <div className="rp-safety-right">
+                    <div className="rp-safety-label" style={{ color: ss.color }}>Safety Score — {ss.label}</div>
+                    {ss.risks.length > 0
+                      ? ss.risks.map(r => <div key={r} className="rp-safety-risk">⚠ {r}</div>)
+                      : <div className="rp-safety-ok">✓ Route looks good to go</div>
+                    }
+                  </div>
+                </div>
+              );
+            })()}
             <div className="summary-cards" style={{ marginTop: '1rem' }}>
               <div className="summary-card">
                 <span className="label">Total Distance</span>
