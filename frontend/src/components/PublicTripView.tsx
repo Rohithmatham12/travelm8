@@ -60,7 +60,6 @@ const PublicTripView: React.FC = () => {
     </div>
   );
 
-  const rq = trip.routeData?.routeRequest;
   const fi = trip.routeData?.finalItinerary;
   const rs = trip.routeData?.routePlan?.routeSummary;
   const ai = trip.routeData?.routePlan?.aiInsights;
